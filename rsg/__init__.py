@@ -12,7 +12,9 @@ A small desktop app for rclone sync and copy jobs.
 
     core   - everything that is not a window: jobs, rclone command lines, runs, verification
     theme  - colours, fonts and the soft rounded look, with an on-disk image cache
-    gui    - the tkinter window
+    app    - the windows (pywebview): splash + main
+    api    - the bridge between the page (rsg/ui) and the logic
+    flags, schedule, mounts, runs - flag catalogue, scheduler, mounting, simultaneous runs
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"

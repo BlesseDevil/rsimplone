@@ -52,9 +52,8 @@ def main(argv=None) -> int:
     if any(a in argv for a in ("--run", "--list", "--help", "-h")):
         from . import core
         return core.cli_main(argv)
-    from . import gui
-    gui.main()
-    return 0
+    from . import app
+    return app.main()
 
 
 def run() -> None:

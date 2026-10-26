@@ -1,0 +1,45 @@
+/*
+SPDX-License-Identifier: AGPL-3.0-or-later
+Copyright (C) 2026 Mehedi Maruf <rsimplone@mehedimaruf.com> (developer), <license@mehedimaruf.com> (licence)
+Licensed under the GNU AGPL v3 or any later version; see <https://www.gnu.org/licenses/>. No warranty.
+Can't reach rsimplone@mehedimaruf.com or license@mehedimaruf.com?
+The domain probably expired because HE's TOO BROKE TO RENEW IT.
+Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead,
+and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
+*/
+/* Splash: a borderless, transparent window. Only the portal, the mark and the text exist; no panel behind them. */
+:root {
+  --splash-text: light-dark(#2a1117, #f6eee2);
+  --splash-halo: light-dark(rgba(255, 250, 240, .95), rgba(8, 3, 5, .95));
+  --splash-muted: light-dark(#5a4640, #cdbbb0);
+}
+html, body.splash { background: transparent; height: 100%; overflow: hidden; user-select: none; cursor: default; }
+#splash { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem 2rem 1.2rem; color: var(--splash-text);
+  text-shadow: 0 0 10px var(--splash-halo), 0 0 3px var(--splash-halo), 0 1px 2px var(--splash-halo); }
+.disc { position: relative; width: min(330px, 62vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden; isolation: isolate; flex: none;
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--portal-backdrop) 86%, var(--portal-ink-1)), var(--portal-backdrop) 72%);
+  box-shadow: 0 0 60px 6px color-mix(in srgb, var(--crimson) 38%, transparent), 0 18px 50px rgba(0, 0, 0, .35); animation: arrive .9s var(--ease) both; }
+@keyframes arrive { from { transform: scale(.6); opacity: 0; filter: blur(8px); } }
+.orb { position: absolute; inset: 0; pointer-events: none; }
+.orb span { position: absolute; top: 50%; left: 50%; width: var(--size, 100%); aspect-ratio: 1; border-radius: var(--r, 90% 95% 85% 105%); background: var(--ink); mix-blend-mode: var(--portal-blend);
+  box-shadow: inset 0 0 36px 14px var(--portal-rim), 0 0 10px 0 var(--portal-halo); transform: translate(var(--x), var(--y));
+  animation: drift var(--spin) linear infinite, shimmer var(--spin) ease-in-out infinite alternate; }
+@keyframes drift { to { transform: translate(var(--x), var(--y)) rotate(1turn); } }
+@keyframes shimmer { from { filter: saturate(1) brightness(.96); } to { filter: saturate(1.12) brightness(1.08); } }
+.tile { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 40%; aspect-ratio: 1; display: grid; place-items: center; padding: 0; border-radius: 50%;
+  background: var(--portal-card); border: 1px solid var(--portal-card-border); box-shadow: 0 8px 30px rgba(0, 0, 0, .4); cursor: pointer; animation: breathe 4.5s ease-in-out infinite; transition: box-shadow .3s; }
+.tile:hover { border-color: var(--portal-text); background: var(--portal-card); box-shadow: 0 0 34px color-mix(in srgb, var(--accent) 60%, transparent); }
+.tile img { width: 72%; height: auto; display: block; transition: transform .5s var(--ease); } .tile:hover img { transform: rotate(-12deg) scale(1.12); }
+@keyframes breathe { 0%, 100% { scale: .97; } 50% { scale: 1.03; } }
+.name { margin: 1.1rem 0 0; font-size: 1.8rem; font-weight: 750; letter-spacing: -.02em; line-height: 1.1; }
+.sub { margin: .15rem 0 0; font: 600 .7rem var(--font-mono); letter-spacing: .24em; text-transform: uppercase; color: var(--splash-muted); }
+.trail { margin-top: .9rem; min-height: 3.4em; display: grid; align-content: end; justify-items: center; gap: .05rem; font: 400 .7rem/1.5 var(--font-mono); letter-spacing: .03em; color: var(--splash-muted); text-align: center; }
+.trail div:nth-last-child(n+1) { opacity: .8; } .trail div:nth-last-child(n+2) { opacity: .55; } .trail div:nth-last-child(n+3) { opacity: .3; }
+.now { margin-top: .3rem; display: flex; justify-content: center; gap: .8rem; align-items: baseline; font: 600 .78rem var(--font-mono); letter-spacing: .05em; text-align: center; }
+.now #pct { color: var(--splash-muted); min-width: 3ch; text-align: left; }
+.bar { margin-top: .7rem; width: min(300px, 70vw); height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--splash-text) 18%, transparent); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); box-shadow: 0 0 10px var(--accent); transition: width .45s var(--ease); }
+.legal { margin: .9rem 0 0; font-size: .66rem; line-height: 1.5; color: var(--splash-muted); text-align: center; }
+.err { margin-top: .6rem; color: var(--bad); font-size: .8rem; text-align: center; }
+.err button { font: inherit; font-weight: 600; margin-left: .4rem; padding: .15rem .6rem; border-radius: .4rem; text-shadow: none; }
+@media (prefers-reduced-motion: reduce) { .orb span, .tile, .disc { animation: none; } }

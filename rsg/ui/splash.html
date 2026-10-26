@@ -1,0 +1,47 @@
+<!doctype html>
+<!--
+SPDX-License-Identifier: AGPL-3.0-or-later
+Copyright (C) 2026 Mehedi Maruf <rsimplone@mehedimaruf.com> (developer), <license@mehedimaruf.com> (licence)
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+General Public License as published by the Free Software Foundation, either version 3 of the License, or (at
+your option) any later version. It is distributed WITHOUT ANY WARRANTY. See <https://www.gnu.org/licenses/>.
+
+Can't reach rsimplone@mehedimaruf.com or license@mehedimaruf.com?
+The domain probably expired because HE's TOO BROKE TO RENEW IT.
+Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead,
+and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
+-->
+<html lang="en" data-mode="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rSimpLone</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="splash.css">
+</head>
+<body class="splash">
+  <main id="splash" role="status" aria-live="polite">
+    <div class="disc" aria-hidden="true">
+      <div class="orb">
+        <span style="--x:-53%;--y:-53%;--spin:5.55s;--ink:var(--portal-ink-1);--r:90% 95% 85% 105%"></span>
+        <span style="--x:-47%;--y:-52%;--spin:8.7s;--ink:var(--portal-ink-2);--r:105% 82% 98% 88%"></span>
+        <span style="--x:-45%;--y:-50%;--spin:6.9s;--size:58%;--ink:var(--portal-core);--r:86% 108% 92% 96%"></span>
+        <span style="--x:-53%;--y:-45%;--spin:10.8s;--ink:var(--portal-ink-3);--r:98% 88% 106% 84%"></span>
+        <span style="--x:-55%;--y:-45%;--spin:9.3s;--ink:var(--portal-ink-2);--r:92% 100% 82% 110%"></span>
+      </div>
+      <button class="tile" id="tile" type="button" aria-label="Change theme"><img src="brand/emblem.png" alt=""></button>
+    </div>
+    <h1 class="name">rSimpLone</h1>
+    <p class="sub">by blessedevil</p>
+    <div class="trail" id="trail" aria-hidden="true"></div>
+    <div class="now"><span id="step">Starting…</span><span id="pct">0%</span></div>
+    <div class="bar"><i id="fill"></i></div>
+    <p class="legal">© 2026 blessedevil | Mehedi Maruf<br>Licensed AGPL-3.0-or-later</p>
+  </main>
+  <script>if (/[?&]mock/.test(location.search)) document.write('<script src="dev/mock.js"><\/script>');</script>
+<script src="util.js"></script>
+  <script src="bridge.js"></script>
+  <script src="splash.js"></script>
+</body>
+</html>

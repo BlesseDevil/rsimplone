@@ -12,12 +12,12 @@
 # You should have received a copy of the GNU Affero General Public License along with this program.
 # If not, see <https://www.gnu.org/licenses/>.
 #
-# Contact: license@mehedimaruf.com
-# Can't reach license@mehedimaruf.com?
+# Contact: rsimplone@mehedimaruf.com (developer), license@mehedimaruf.com (licence)
+# Can't reach rsimplone@mehedimaruf.com or license@mehedimaruf.com?
 # The domain probably expired because HE's TOO BROKE TO RENEW IT.
 # Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead,
 # and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
-"""Portable logic for rSimpLone, the rclone sync/copy manager. Standard library only, no GUI imports."""
+"""Portable logic for rSimpLone, the rclone copy/sync/move manager. Standard library only, no GUI imports."""
 from __future__ import annotations
 
 import json
@@ -36,10 +36,17 @@ from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from . import flags as flagmod
+
 APP_NAME = "rSimpLone"
 LEGACY_APP_NAME = "rclone-sync-gui"
 IS_WIN = sys.platform.startswith("win")
-MODES = ("sync", "copy")
+MODES = ("copy", "sync", "move")
+MODE_HELP = {
+    "copy": "Adds new and changed files. Never deletes anything.",
+    "sync": "Mirrors the source. Anything replaced or removed goes into the backup folder, never lost.",
+    "move": "Transfers files, then removes the originals. Always preview with a dry run first.",
+}
 
 EXIT_MEANINGS = {
     0: "success - finished without errors",
@@ -109,6 +116,11 @@ class Job:
     checkers: int = 0             # 0 = profile default
     transfers: int = 0
     list_depth: int = 1
+    flags: Dict[str, Any] = field(default_factory=dict)       # rclone flag tweaks that differ from rclone's defaults
+    extra: str = ""               # further flags typed by hand (app-owned flags are refused)
+    schedule: Dict[str, Any] = field(default_factory=dict)    # see schedule.py
+    dry_sig: str = ""             # fingerprint of the last good dry run; a real MOVE needs a matching one
+    dry_ts: float = 0.0
     last_run: str = ""
     last_mode: str = ""
     last_code: Optional[int] = None
@@ -239,7 +251,11 @@ def validate_job(job: Job, rclone: Optional[str]) -> List[str]:
     if not rclone:
         errors.append("rclone was not found. Install it or set its path in Settings.")
     if job.mode not in MODES:
-        errors.append("Choose Sync or Copy.")
+        errors.append("Choose Copy, Sync or Move.")
+    try:
+        build_args(job, False, "stamp")
+    except ValueError as exc:
+        errors.append(str(exc))
     if not job.source:
         errors.append("Choose the local folder.")
     elif not os.path.isdir(job.source):
@@ -324,12 +340,13 @@ def _popen_flags() -> Dict[str, Any]:
     return {"start_new_session": True}
 
 
-def run_capture(rclone: str, args: List[str], timeout: int = 120) -> Tuple[int, str, str]:
+def run_capture(rclone: str, args: List[str], timeout: int = 120, stdin_text: Optional[str] = None) -> Tuple[int, str, str]:
     flags: Dict[str, Any] = {"creationflags": subprocess.CREATE_NO_WINDOW} if IS_WIN else {}
+    stdin: Dict[str, Any] = {"stdin": subprocess.DEVNULL} if stdin_text is None else {"input": stdin_text}
     try:
         proc = subprocess.run(
             [rclone] + args, capture_output=True, text=True, encoding="utf-8", errors="replace",
-            timeout=timeout, stdin=subprocess.DEVNULL, **flags,
+            timeout=timeout, **stdin, **flags,
         )
     except subprocess.TimeoutExpired:
         raise RcloneError("rclone did not answer within %d seconds" % timeout)
@@ -356,6 +373,43 @@ def list_remotes(rclone: str) -> List[Tuple[str, str]]:
         if m:
             remotes.append((m.group(1), m.group(2)))
     return remotes
+
+
+_REMOTE_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.+-]*$")
+
+
+def _obscure(rclone: str, secret: str) -> str:
+    """rclone's reversible obscuring of a password. The secret goes in on stdin, never on a command line."""
+    code, out, _ = run_capture(rclone, ["obscure", "-"], timeout=20, stdin_text=secret)
+    if code != 0 or not out.strip():
+        raise RcloneError("rclone could not prepare the password")
+    return out.strip()
+
+
+def create_crypt_remote(rclone: str, name: str, base: str, password: str, salt: str = "",
+                        filename_encryption: str = "standard", dir_encryption: bool = True) -> None:
+    """Create a crypt remote `name:` that encrypts into `base` (a remote or remote:folder).
+    The passwords are obscured through stdin first; only the obscured text reaches rclone's command line
+    (briefly visible to other users of this computer, which is how `rclone config create` works).
+    They are never written to jobs.json, logs, previews or exported scripts."""
+    if not _REMOTE_NAME.match(name or ""):
+        raise RcloneError("Use letters, digits, '.', '_', '+' or '-' for the new remote's name.")
+    if not base or ":" not in base:
+        raise RcloneError("Choose the remote (or remote:folder) the encrypted data will live in.")
+    if not password:
+        raise RcloneError("Enter a password.")
+    if filename_encryption not in ("standard", "obfuscate", "off"):
+        raise RcloneError("Unknown file name encryption.")
+    if name in [n for n, _ in list_remotes(rclone)]:
+        raise RcloneError("A remote called '%s' already exists." % name)
+    args = ["config", "create", name, "crypt", "remote", base, "password", _obscure(rclone, password),
+            "filename_encryption", filename_encryption, "directory_name_encryption", "true" if dir_encryption else "false",
+            "--no-obscure", "--non-interactive"]
+    if salt:
+        args[args.index("filename_encryption"):args.index("filename_encryption")] = ["password2", _obscure(rclone, salt)]
+    code, _out, err = run_capture(rclone, args, timeout=60)
+    if code != 0:
+        raise RcloneError(("could not create the remote: " + " ".join(err.strip().splitlines()[-2:])) if err.strip() else "could not create the remote")
 
 
 def list_dirs(rclone: str, remote: str, depth: int) -> List[str]:
@@ -401,29 +455,32 @@ def build_args(job: Job, real: bool, stamp: str, *, for_script: bool = False, lo
     t = tuning(job)
     local = is_local(job)
     args = [job.mode, job.source, dest_spec(job)]
+    m: Dict[str, Any] = {}      # flags derived from the job; the job's own tweaks are merged over them below
     if uses_backup(job):
-        args += ["--backup-dir", backup_spec(job, stamp)]
+        m["--backup-dir"] = backup_spec(job, stamp)
     if t["check_first"]:
-        args.append("--check-first")
-    args += ["--checkers", str(t["checkers"]), "--transfers", str(t["transfers"]), "--buffer-size", t["buffer"]]
+        m["--check-first"] = None
+    m.update({"--checkers": str(t["checkers"]), "--transfers": str(t["transfers"]), "--buffer-size": t["buffer"]})
     if not local:
-        args += ["--drive-chunk-size", t["chunk"], "--fast-list"]
-    args += ["--retries", "3"]
+        m["--drive-chunk-size"] = t["chunk"]
+        m["--fast-list"] = None
+    m["--retries"] = "3"
     if job.api_low and not local:
         # fewer Drive calls: a steady request rate so rate limiting does not force wasted retries, and fewer
         # low-level retries (bigger upload chunks and --fast-list are set above)
-        args += ["--tpslimit", "8", "--tpslimit-burst", "1", "--low-level-retries", "5"]
+        m.update({"--tpslimit": "8", "--tpslimit-burst": "1", "--low-level-retries": "5"})
     else:
-        args += ["--low-level-retries", "10"]
+        m["--low-level-retries"] = "10"
     if job.no_dir_modtime and not local:
         # independent of the option above: by default rclone sets a remote folder's date to the local folder's,
         # one metadata call per differing folder. File checking and hashing are not affected either way.
         # (A local destination has no API calls to save, so its folder dates are always kept.)
-        args.append("--no-update-dir-modtime")
+        m["--no-update-dir-modtime"] = None
     if job.mode == "copy" and job.skip_existing:
-        args.append("--ignore-existing")
+        m["--ignore-existing"] = None
     if t["bwlimit"] and not local:    # the line-speed limit is about the internet, not a copy between local folders
-        args += ["--bwlimit", t["bwlimit"]]
+        m["--bwlimit"] = t["bwlimit"]
+    args += flagmod.merge(m, job.flags, job.extra)
     if for_script:
         args += ["-v", "-P"]
         if log_file:
@@ -433,6 +490,17 @@ def build_args(job: Job, real: bool, stamp: str, *, for_script: bool = False, lo
     if not real:
         args.append("--dry-run")
     return args
+
+
+def job_signature(job: Job) -> str:
+    """A fingerprint of everything that decides what a run would do (not the run's time stamp). A real MOVE and a
+    scheduled real run are only allowed while the job still matches the dry run / typed confirmation they were given for."""
+    import hashlib
+    try:
+        blob = "\0".join(build_args(job, True, "STAMP"))
+    except ValueError:
+        blob = "invalid"
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
 def command_text(rclone: str, args: List[str]) -> str:
@@ -454,7 +522,7 @@ def export_script(job: Job, rclone: str = "rclone") -> Tuple[str, str]:
             lit = "'" + a.replace("'", "''") + "'"
             return "('" + a.split(_STAMP)[0].replace("'", "''") + "' + $stamp + '" + a.split(_STAMP)[1].replace("'", "''") + "')" if _STAMP in a else lit
         body = [
-            "# Generated by rclone-sync-gui. Dry run unless -Execute is given.",
+            "# Generated by rSimpLone. Dry run unless -Execute is given.",
             "param([switch]$Execute)",
             "$stamp = Get-Date -Format 'yyyyMMdd-HHmm'",
             "$a = @(",
@@ -473,7 +541,7 @@ def export_script(job: Job, rclone: str = "rclone") -> Tuple[str, str]:
         return shlex.quote(a)
     body = [
         "#!/bin/sh",
-        "# Generated by rclone-sync-gui. Dry run unless --execute is given.",
+        "# Generated by rSimpLone. Dry run unless --execute is given.",
         "STAMP=$(date +%Y%m%d-%H%M)",
         "EXTRA=--dry-run",
         '[ "$1" = "--execute" ] && EXTRA=',
@@ -523,6 +591,13 @@ def _summary(real: bool, counts: Dict[str, int], errors: List[str], mode: str) -
     up, mt = counts.get("upload", 0), counts.get("modtime", 0)
     moved = counts.get("backup", 0)
     dele = counts.get("delete", 0)
+    if mode == "move":      # the deleted files are the SOURCE copies of what was just transferred
+        parts = ["%d %s" % (up, "moved" if real else "would move")]
+        if moved:
+            parts.append("%d %s" % (moved, "replaced files kept in backup" if real else "would be kept in backup"))
+        if errors:
+            parts.append("%d errors" % len(errors))
+        return ", ".join(parts)
     verb = ("uploaded", "timestamps fixed", "moved to backup", "deleted") if real else (
         "would upload", "would fix timestamps on", "would move to backup", "would delete")
     parts = ["%d %s" % (up, verb[0])]
@@ -662,8 +737,8 @@ class SyncRun:
                 self.events.put(("stats", stats))
                 continue
             msg, level, obj = str(rec.get("msg", "")), str(rec.get("level", "info")), str(rec.get("object", ""))
-            stamp = str(rec.get("time", ""))[11:19]
-            text = "%s %-6s %s%s" % (stamp, level.upper(), (obj + ": ") if obj else "", msg)
+            stamp = str(rec.get("time", ""))[:19].replace("T", " ").replace("-", "/")
+            text = "%s %-5s : %s%s" % (stamp, level.upper(), (obj + ": ") if obj else "", msg)   # rclone's own layout
             self._log.write(text + "\n")
             self.events.put(("log", {"level": level, "text": text}))
             kind = classify(msg, level)
@@ -748,6 +823,8 @@ def detect_disk_kind(path: str) -> Optional[str]:
     USB-attached drives return None on Windows: many USB enclosures report the wrong thing (a spinning laptop drive
     in an enclosure can claim to be an SSD), and a wrong guess would pick the wrong tuning."""
     try:
+        if not path or not path.strip():
+            return None
         path = os.path.abspath(path)
         if IS_WIN:
             return _detect_windows(path)

@@ -1,0 +1,62 @@
+<!doctype html>
+<!--
+SPDX-License-Identifier: AGPL-3.0-or-later
+Copyright (C) 2026 Mehedi Maruf <rsimplone@mehedimaruf.com> (developer), <license@mehedimaruf.com> (licence)
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+General Public License as published by the Free Software Foundation, either version 3 of the License, or (at
+your option) any later version. It is distributed WITHOUT ANY WARRANTY. See <https://www.gnu.org/licenses/>.
+
+Can't reach rsimplone@mehedimaruf.com or license@mehedimaruf.com?
+The domain probably expired because HE's TOO BROKE TO RENEW IT.
+Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead,
+and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
+-->
+<html lang="en" data-mode="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rSimpLone by blessedevil</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app" hidden>
+  <header class="titlebar">
+    <div class="drag pywebview-drag-region">
+      <button class="brand" id="logo-btn" type="button" aria-label="Change theme">
+        <span class="logo"><img class="main" id="logo-main" src="brand/emblem.png" alt=""><img class="line" src="brand/emblem-line.svg" alt=""></span>
+        <span><b>rSimpLone</b><small>by blessedevil</small></span>
+      </button>
+    </div>
+    <div class="tb-right">
+      <button class="ghost sm" id="contact-btn" type="button">Contact dev</button>
+    </div>
+    <div class="winctl">
+      <button id="win-min" type="button" aria-label="Minimise" title="Minimise"><svg viewBox="0 0 12 12"><path d="M2 6h8"/></svg></button>
+      <button id="win-max" type="button" aria-label="Maximise or restore" title="Maximise / restore"><svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1"/></svg></button>
+      <button id="win-close" type="button" class="close" aria-label="Close" title="Close"><svg viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7"/></svg></button>
+    </div>
+  </header>
+  <nav id="rail" aria-label="Jobs">
+    <div class="rail-head"><h3>Jobs</h3><div class="newmenu" id="newmenu"></div></div>
+    <div class="joblist" id="joblist"></div>
+    <div class="rail-nav" id="railnav"></div>
+  </nav>
+  <section id="main">
+    <div id="page"></div>
+    <div id="bottom"></div>
+  </section>
+  <footer id="status"></footer>
+  <div class="rz r"></div><div class="rz b"></div><div class="rz c"></div>
+</div>
+<div id="tip" role="tooltip"></div>
+<div id="toasts" aria-live="polite"></div>
+<dialog id="dlg"></dialog>
+<script>if (/[?&]mock/.test(location.search)) document.write('<script src="dev/mock.js"><\/script>');</script>
+<script src="util.js"></script>
+<script src="bridge.js"></script>
+<script src="views-job.js"></script>
+<script src="views-more.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

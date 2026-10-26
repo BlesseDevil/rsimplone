@@ -12,19 +12,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rsimplone"
-version = "1.0.0"
-description = "rSimpLone by blessedevil: sync and copy with rclone, made easy"
+version = "2.0.0"
+description = "rSimpLone by blessedevil: copy, sync and move with rclone, made easy"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "AGPL-3.0-or-later" }
 authors = [{ name = "blessedevil | Mehedi Maruf" }]
-dependencies = []   # standard library only; tkinter ships with the Windows and macOS installers
+dependencies = ["pywebview>=5"]
+
+[project.optional-dependencies]
+tray = ["pystray>=0.19", "Pillow>=10"]
 
 [project.gui-scripts]
 rsimplone = "rsg.__main__:run"
 
 [tool.setuptools]
 packages = ["rsg"]
+include-package-data = true
 
 [tool.setuptools.package-data]
-rsg = ["assets/*.png"]
+rsg = ["ui/*", "ui/brand/*", "ui/fonts/*", "ui/dev/*"]
