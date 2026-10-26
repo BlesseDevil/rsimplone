@@ -22,6 +22,7 @@ error}, never raises into the page. No file names or log text are sent anywhere 
 from __future__ import annotations
 
 import collections
+import copy
 import functools
 import json
 import shutil
@@ -58,12 +59,32 @@ def _api(fn: Callable[..., Any]) -> Callable[..., Dict[str, Any]]:
     return wrapper
 
 
+def _coerce(name: str, value: Any, sample: Any) -> Any:
+    """Make an incoming value the same type as the field it replaces, or raise a readable ValueError."""
+    try:
+        if isinstance(sample, bool):
+            return bool(value)
+        if isinstance(sample, int):
+            return int(float(value))
+        if isinstance(sample, float):
+            return float(value)
+        if isinstance(sample, str):
+            return "" if value is None else str(value)
+        if isinstance(sample, dict):
+            if not isinstance(value, dict):
+                raise ValueError
+            return value
+    except (TypeError, ValueError):
+        raise ValueError("'%s' has an invalid value." % name)
+    return value
+
+
 def _job_from(d: Dict[str, Any], base: Optional[core.Job] = None) -> core.Job:
     known = {f.name: f for f in fields(core.Job)}
     job = base or core.Job()
     for k, v in d.items():
-        if k in known and k not in ("id", "last_run", "last_mode", "last_code", "last_summary", "dry_sig", "dry_ts"):
-            setattr(job, k, v)
+        if k in known and k not in ("id", "last_run", "last_mode", "last_code", "last_summary", "dry_sig", "dry_ts", "schedule"):
+            setattr(job, k, _coerce(k, v, getattr(job, k)))
     if job.mode not in core.MODES:
         job.mode = "copy"
     job.dest_kind = "local" if job.dest_kind == "local" else "remote"
@@ -115,6 +136,8 @@ class Api:
             job.last_code, job.last_summary = res.code, res.summary
             if not rec.real and not res.stopped and res.code in (0, 9):
                 job.dry_sig, job.dry_ts = core.job_signature(job), time.time()
+            elif rec.real and job.mode == "move":
+                job.dry_sig, job.dry_ts = "", 0.0      # a dry run unlocks one real Move, not many
             self._save()
         word = "finished" if res.code in (0, 9) else "ended with errors"
         self._note("ok" if res.code in (0, 9) else "bad", "%s %s: %s" % (job.name, word, res.summary))
@@ -331,7 +354,7 @@ class Api:
         d["dest_text"] = core.dest_spec(job) if (job.target or job.dest_kind == "remote" and job.remote) else ""
         d["crypt"] = any(r["name"] == job.remote and r["crypt"] for r in self.remotes) and job.dest_kind == "remote"
         d["busy"] = self.mgr.job_busy(job.id)
-        d["move_ready"] = bool(job.dry_sig and job.dry_sig == core.job_signature(job) and time.time() - job.dry_ts < runs.DRY_RUN_VALID_SECONDS)
+        d["move_ready"] = job.mode == "move" and core.move_gate(job) is None
         return d
 
     @_api
@@ -357,14 +380,14 @@ class Api:
     @_api
     def save_job(self, d: Dict[str, Any]) -> Dict[str, Any]:
         with self.lock:
-            job = self._job(str(d.get("id", "")))
-            if self.mgr.job_busy(job.id):
+            old = self._job(str(d.get("id", "")))
+            if self.mgr.job_busy(old.id):
                 raise ValueError("Stop this job before changing it.")
-            _job_from(d, job)
+            job = _job_from(d, copy.deepcopy(old))      # work on a copy: a bad value must not leave the real job half-changed
             job.name = (job.name or "").strip() or "Untitled job"
             job.flags = flagmod.clean_overrides(job.flags, self.catalogue)
-            job.schedule = schedule.normalize(job.schedule) if job.schedule else {}
-            job.checkers, job.transfers = max(0, int(job.checkers or 0)), max(0, int(job.transfers or 0))
+            job.checkers, job.transfers = max(0, job.checkers), max(0, job.transfers)
+            self.store.jobs[self.store.jobs.index(old)] = job
             self._save()
         return self._job_view(job)
 
@@ -395,13 +418,16 @@ class Api:
     @_api
     def preview(self, job_id: str) -> Dict[str, str]:
         job = self._job(job_id)
-        args = core.build_args(job, False, time.strftime("%Y%m%d-%H%M"))
+        args = core.build_args(job, False, time.strftime("%Y%m%d-%H%M%S"))
         return {"dry": core.command_text(self.rclone or "rclone", args),
                 "real": core.command_text(self.rclone or "rclone", [a for a in args if a != "--dry-run"])}
 
     @_api
     def export_script(self, job_id: str) -> Dict[str, str]:
-        name, text = core.export_script(self._job(job_id), self.rclone or "rclone")
+        job = self._job(job_id)
+        if job.mode == "move":
+            raise ValueError("Move jobs can't be exported: a standalone script has no dry-run gate. Run Move from the app.")
+        name, text = core.export_script(job, self.rclone or "rclone")
         out = core.config_dir() / "scripts"
         out.mkdir(parents=True, exist_ok=True)
         path = out / name

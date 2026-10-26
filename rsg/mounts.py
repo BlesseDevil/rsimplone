@@ -192,13 +192,14 @@ class MountRun:
             return
         self.stopping = True
         self._set("stopping")
-        try:
-            if core.IS_WIN:
-                proc.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
-            else:
-                os.killpg(proc.pid, signal.SIGINT)
-        except Exception:  # noqa: BLE001
-            proc.terminate()
+
+        def _go() -> None:
+            try:
+                core.interrupt(proc)
+            except Exception:  # noqa: BLE001
+                proc.terminate()
+
+        threading.Thread(target=_go, name="rclone-unmount", daemon=True).start()
         timer = threading.Timer(8.0, self._force)
         timer.daemon = True
         timer.start()

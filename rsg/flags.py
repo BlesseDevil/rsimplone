@@ -52,8 +52,8 @@ def denied_in_tokens(tokens: List[str]) -> List[str]:
         if tok.startswith("--"):
             if is_denied(tok):
                 bad.append(tok.split("=", 1)[0])
-        elif re.match(r"^-[A-Za-z]+$", tok):
-            for ch in tok[1:]:
+        elif re.match(r"^-[A-Za-z]+(=.*)?$", tok):
+            for ch in tok.split("=", 1)[0][1:]:
                 if ch in DENIED_SHORT:
                     bad.append("-" + ch)
     return bad
@@ -62,6 +62,7 @@ def denied_in_tokens(tokens: List[str]) -> List[str]:
 # --------------------------------------------------------------------------------------------
 # the catalogue
 # --------------------------------------------------------------------------------------------
+_FLAG_NAME = re.compile(r"^--[a-z0-9][a-z0-9.-]*$")
 _LONG = re.compile(r"^\s{2}(-\w), (--[\w.-]+)(?: (\S+))?\s{2,}(.*)$")
 _LONG_ONLY = re.compile(r"^\s{6}(--[\w.-]+)(?: (\S+))?\s{2,}(.*)$")
 _GROUP = re.compile(r"^Flags.*\(flag group ([^)]+)\):\s*$")
@@ -119,7 +120,7 @@ def clean_overrides(overrides: Dict[str, Any], catalogue: List[Dict[str, Any]]) 
     known = {f["name"]: f for f in catalogue}
     out: Dict[str, Any] = {}
     for name, value in (overrides or {}).items():
-        if not isinstance(name, str) or not name.startswith("--") or is_denied(name):
+        if not isinstance(name, str) or not _FLAG_NAME.match(name) or is_denied(name):
             continue
         spec = known.get(name)
         if value is None or value == "":
@@ -144,6 +145,8 @@ def merge(managed: Dict[str, Any], overrides: Dict[str, Any], extra: str = "") -
     extra: a free-form line of further flags. Raises ValueError for a flag the app owns."""
     result: Dict[str, Any] = dict(managed)
     for name, value in (overrides or {}).items():
+        if not isinstance(name, str) or not _FLAG_NAME.match(name):
+            raise ValueError("%r is not a valid rclone flag name." % (name,))
         if is_denied(name):
             raise ValueError("%s is managed by rSimpLone and cannot be changed here." % name)
         if value is False or value is None or value == "":

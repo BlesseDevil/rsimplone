@@ -15,14 +15,19 @@ other end, and a strong wish not to re-read or re-upload anything that doesn't n
 |---|---|---|
 | **Copy** | Adds new and changed files to the destination | Never |
 | **Sync** | Mirrors the source; replaced and removed files move to a backup folder | Never for good: they go to the backup folder |
-| **Move** | Transfers, then removes the originals from the source | **The source files.** A real run unlocks only after a dry run of the exact same job (valid 24 h) |
+| **Move** | Transfers, then removes the originals from the source (every file is verified by checksum first) | **The source files.** Needs a backup folder, and a real run unlocks only after a dry run of the exact same job (24 h, one use) |
 
 Destinations can be a cloud remote, an **encrypted (crypt) remote**, or another local folder. Backups use
-`<backup folder>/<source name>/<YYYYMMDD-HHMM>/` on the same remote, so nothing is re-uploaded.
+`<backup folder>/<source name>/<YYYYMMDD-HHMMSS>/` on the same remote, so nothing is re-uploaded. Sync and Move
+refuse to run without a backup folder, refuse an empty source (a disconnected drive would otherwise look like
+"everything was deleted"), and refuse flags that skip verification. Copy never deletes, but a changed file
+overwrites the old one unless you set a backup folder.
 
 Other features:
 
-- **Several jobs at once**, each in its own run; two jobs can't write to the same place at the same time.
+- **Several jobs at once**, each in its own run; two jobs can't write to the same place at the same time. A remote that
+  is really a folder on this computer (local, alias, crypt over a local folder) is checked against your source and backup
+  folders too; other cross-job overlaps through such remotes are not detected.
 - **Scheduler** (daily, weekly or every N minutes) while the app is open. Scheduled *real* runs need a one-time typed
   `EXECUTE` and fall back to dry runs if you later edit the job. A background mode keeps it alive with the window closed
   (tray icon with the optional `pystray` + `Pillow` packages; otherwise it just minimises). Running with the app fully
@@ -59,7 +64,8 @@ A dry run hashes just like a real run, and rclone doesn't remember hashes betwee
 - Optional: `pip install pystray Pillow` for the tray icon.
 
 Headless (for Task Scheduler / cron): `python -m rsg --list`, `python -m rsg --run "My job"` (dry run), add
-`--execute --yes` to run for real. **Export script** in a job's Config tab writes a standalone script.
+`--execute --yes` to run for real (a Move still needs its dry run first). **Export script** in a job's Config tab writes a
+standalone script (not offered for Move jobs: a script has no safety gate).
 
 ## Where things are stored
 

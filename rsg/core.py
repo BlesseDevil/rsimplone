@@ -183,15 +183,21 @@ def source_leaf(source: str) -> str:
 
 def job_label(job: Job) -> str:
     label = job.label.strip() or source_leaf(job.source) or norm_remote_path(job.target).split("/")[-1] or "root"
-    return re.sub(r'[\\/:*?"<>|]', "_", label)
+    label = re.sub(r'[\\/:*?"<>|]', "_", label)
+    return label if label.strip(". ") else "_"        # '.' and '..' would point out of the backup folder
 
 
 def backup_path(job: Job, stamp: str) -> str:
     return "/".join(p for p in (norm_remote_path(job.backup_root), job_label(job), stamp) if p)
 
 
+def needs_backup(job: Job) -> bool:
+    """Sync and Move may not run without a backup folder: both can replace or remove files for good otherwise."""
+    return job.mode in ("sync", "move")
+
+
 def uses_backup(job: Job) -> bool:
-    return job.mode == "sync" or bool(job.backup_root.strip())
+    return needs_backup(job) or bool(job.backup_root.strip())
 
 
 def is_local(job: Job) -> bool:
@@ -217,7 +223,8 @@ def paths_overlap(a: str, b: str) -> bool:
 
 def local_overlap(a: str, b: str) -> bool:
     a, b = os.path.normcase(os.path.abspath(a)), os.path.normcase(os.path.abspath(b))
-    return a == b or a.startswith(b + os.sep) or b.startswith(a + os.sep)
+    ap, bp = (a if a.endswith(os.sep) else a + os.sep), (b if b.endswith(os.sep) else b + os.sep)    # 'C:\' already ends in a separator
+    return ap.startswith(bp) or bp.startswith(ap)
 
 
 @dataclass
@@ -246,6 +253,34 @@ def check_path(path: str, dirs: List[str], depth: int) -> PathVerdict:
     return verdict
 
 
+MOVE_UNSAFE = {"--update", "--size-only", "--ignore-size", "--no-check-dest"}
+
+
+def _move_unsafe(job: Job) -> List[str]:
+    """Flags that let a Move delete a source file without a verified copy (or switch the verification off)."""
+    names = {k for k, v in (job.flags or {}).items() if v not in (False, None, "")}
+    if (job.flags or {}).get("--checksum") is False:
+        names.add("--checksum (off)")
+    try:
+        tokens = shlex.split(job.extra or "")
+    except ValueError:
+        tokens = []
+    for t in tokens:
+        if t.startswith("--"):
+            names.add(t.split("=", 1)[0])
+        elif re.match(r"^-[A-Za-z]+(=.*)?$", t) and "u" in t.split("=", 1)[0][1:]:
+            names.add("--update")
+    return sorted(names & (MOVE_UNSAFE | {"--checksum (off)"}))
+
+
+def _is_empty_dir(path: str) -> bool:
+    try:
+        with os.scandir(path) as it:
+            return next(it, None) is None
+    except OSError:
+        return False
+
+
 def validate_job(job: Job, rclone: Optional[str]) -> List[str]:
     errors: List[str] = []
     if not rclone:
@@ -256,6 +291,15 @@ def validate_job(job: Job, rclone: Optional[str]) -> List[str]:
         build_args(job, False, "stamp")
     except ValueError as exc:
         errors.append(str(exc))
+    if job.mode == "move":
+        unsafe = _move_unsafe(job)
+        if unsafe:
+            errors.append("%s can make Move delete a source file whose copy is not verified; remove it for Move jobs." % ", ".join(unsafe))
+    if job.mode in ("sync", "move") and job.source and os.path.isdir(job.source) and _is_empty_dir(job.source):
+        errors.append("The source folder is empty. %s would treat everything at the destination as removed. "
+                      "If a drive is disconnected, reconnect it; otherwise use Copy." % job.mode.capitalize())
+    if not is_local(job) and re.search(r"[:,/\\]", job.remote or ""):
+        errors.append("Pick the remote from the list (names with ':' or ',' are not accepted).")
     if not job.source:
         errors.append("Choose the local folder.")
     elif not os.path.isdir(job.source):
@@ -268,8 +312,8 @@ def validate_job(job: Job, rclone: Optional[str]) -> List[str]:
     backup = norm_remote_path(job.backup_root)
     if not target:
         errors.append("Choose a target folder on the remote (not the remote root).")
-    if job.mode == "sync" and not backup:
-        errors.append("Sync needs a backup folder on the remote (changed and deleted files are moved there).")
+    if needs_backup(job) and not backup:
+        errors.append("%s needs a backup folder on the remote (replaced and removed files are kept there)." % job.mode.capitalize())
     if target and backup and paths_overlap(target, backup):
         errors.append("The target folder and the backup folder must be separate, non-nested folders.")
     if job.bw_mbps <= 0 and not job.no_bw_limit:
@@ -287,8 +331,8 @@ def _validate_local(job: Job) -> List[str]:
         errs.append("The destination must be a full folder path, for example D:\\Backups\\Photos.")
     elif os.path.dirname(os.path.normpath(target)) == os.path.normpath(target):
         errs.append("Choose a folder inside the drive, not the whole drive.")
-    if job.mode == "sync" and not backup:
-        errs.append("Sync needs a backup folder (changed and deleted files are moved there).")
+    if needs_backup(job) and not backup:
+        errs.append("%s needs a backup folder (replaced and removed files are kept there)." % job.mode.capitalize())
     if backup and not os.path.isabs(backup):
         errs.append("The backup folder must be a full folder path.")
     t_ok = bool(target) and os.path.isabs(target)
@@ -335,9 +379,36 @@ def find_rclone(custom: str = "") -> Optional[str]:
 
 
 def _popen_flags() -> Dict[str, Any]:
+    """rclone runs in its own, hidden console on Windows (not CREATE_NO_WINDOW): a console is what lets it receive
+    Ctrl+C, so a stop cleans up half-copied files. The app itself never shows or keeps a console."""
     if IS_WIN:
-        return {"creationflags": subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP}
+        si = subprocess.STARTUPINFO()  # type: ignore[attr-defined]
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore[attr-defined]
+        si.wShowWindow = 0
+        return {"creationflags": subprocess.CREATE_NEW_CONSOLE | subprocess.CREATE_NEW_PROCESS_GROUP, "startupinfo": si}  # type: ignore[attr-defined]
     return {"start_new_session": True}
+
+
+_WIN_CTRL_C = """
+import ctypes, sys, time
+k = ctypes.windll.kernel32
+k.FreeConsole()
+if k.AttachConsole(int(sys.argv[1])):
+    k.SetConsoleCtrlHandler(None, True)
+    k.GenerateConsoleCtrlEvent(1, int(sys.argv[1]))      # CTRL_BREAK to rclone's own process group (Go treats it as an interrupt)
+    time.sleep(0.6)
+    k.FreeConsole()
+"""
+
+
+def interrupt(proc: "subprocess.Popen") -> None:
+    """Send rclone the equivalent of Ctrl+C. On Windows a small helper attaches to rclone's hidden console for a
+    moment (this process may have no console of its own). Raises on failure so the caller can fall back."""
+    if IS_WIN:
+        subprocess.run([sys.executable, "-c", _WIN_CTRL_C, str(proc.pid)], creationflags=subprocess.CREATE_NO_WINDOW,  # type: ignore[attr-defined]
+                       timeout=10, check=True)
+    else:
+        os.killpg(proc.pid, signal.SIGINT)
 
 
 def run_capture(rclone: str, args: List[str], timeout: int = 120, stdin_text: Optional[str] = None) -> Tuple[int, str, str]:
@@ -373,6 +444,36 @@ def list_remotes(rclone: str) -> List[Tuple[str, str]]:
         if m:
             remotes.append((m.group(1), m.group(2)))
     return remotes
+
+
+_WRAPPING_TYPES = ("alias", "crypt", "compress", "chunker", "hasher", "cache")
+
+
+def remote_local_root(rclone: str, name: str, _depth: int = 0) -> Optional[str]:
+    """When a remote is only a window onto a folder of THIS computer (type local, or an alias / crypt / ... of one),
+    return that folder ('' for a plain local remote, whose paths are real paths). Otherwise None.
+    Used to refuse a destination that would end up inside the source or the backup folder."""
+    if _depth > 6:
+        return None
+    try:
+        code, out, _ = run_capture(rclone, ["config", "dump"], timeout=30)
+        entry = json.loads(out).get(name) if code == 0 else None
+    except (RcloneError, ValueError):
+        return None
+    if not isinstance(entry, dict):
+        return None
+    kind = entry.get("type", "")
+    if kind == "local":
+        return ""
+    if kind in _WRAPPING_TYPES:
+        target = str(entry.get("remote", ""))
+        if re.match(r"^[A-Za-z]:[\\/]", target) or target.startswith(("/", "\\")):
+            return target
+        if ":" in target:
+            inner, sub = target.split(":", 1)
+            base = remote_local_root(rclone, inner, _depth + 1)
+            return None if base is None else os.path.join(base, sub) if base else sub
+    return None
 
 
 _REMOTE_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.+-]*$")
@@ -465,6 +566,10 @@ def build_args(job: Job, real: bool, stamp: str, *, for_script: bool = False, lo
         m["--drive-chunk-size"] = t["chunk"]
         m["--fast-list"] = None
     m["--retries"] = "3"
+    if job.mode == "move":
+        m["--checksum"] = None             # never delete a source file just because size and time look equal
+        if local:
+            m["--disable"] = "DirMove"     # otherwise a missing destination makes rclone rename the whole source folder away
     if job.api_low and not local:
         # fewer Drive calls: a steady request rate so rate limiting does not force wasted retries, and fewer
         # low-level retries (bigger upload chunks and --fast-list are set above)
@@ -503,6 +608,20 @@ def job_signature(job: Job) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
+DRY_RUN_VALID_SECONDS = 24 * 3600
+
+
+def move_gate(job: Job) -> Optional[str]:
+    """Why a REAL Move may not start yet (None when it may). Shared by the window and the headless mode."""
+    if job.mode != "move":
+        return None
+    fresh = time.time() - float(job.dry_ts or 0) < DRY_RUN_VALID_SECONDS
+    if job.dry_sig and job.dry_sig == job_signature(job) and fresh:
+        return None
+    return ("A real Move removes the source files. Run a dry run of this exact job first "
+            "(it stays valid for 24 hours, for one real run, and until you change the job).")
+
+
 def command_text(rclone: str, args: List[str]) -> str:
     parts = [rclone] + args
     return subprocess.list2cmdline(parts) if IS_WIN else " ".join(shlex.quote(p) for p in parts)
@@ -524,7 +643,7 @@ def export_script(job: Job, rclone: str = "rclone") -> Tuple[str, str]:
         body = [
             "# Generated by rSimpLone. Dry run unless -Execute is given.",
             "param([switch]$Execute)",
-            "$stamp = Get-Date -Format 'yyyyMMdd-HHmm'",
+            "$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'",
             "$a = @(",
             ",\n".join("    " + q(a) for a in args),
             ")",
@@ -542,7 +661,7 @@ def export_script(job: Job, rclone: str = "rclone") -> Tuple[str, str]:
     body = [
         "#!/bin/sh",
         "# Generated by rSimpLone. Dry run unless --execute is given.",
-        "STAMP=$(date +%Y%m%d-%H%M)",
+        "STAMP=$(date +%Y%m%d-%H%M%S)",
         "EXTRA=--dry-run",
         '[ "$1" = "--execute" ] && EXTRA=',
         "exec %s \\" % shlex.quote(rclone),
@@ -593,8 +712,6 @@ def _summary(real: bool, counts: Dict[str, int], errors: List[str], mode: str) -
     dele = counts.get("delete", 0)
     if mode == "move":      # the deleted files are the SOURCE copies of what was just transferred
         parts = ["%d %s" % (up, "moved" if real else "would move")]
-        if moved:
-            parts.append("%d %s" % (moved, "replaced files kept in backup" if real else "would be kept in backup"))
         if errors:
             parts.append("%d errors" % len(errors))
         return ", ".join(parts)
@@ -647,6 +764,12 @@ def _acquire_lock(job: Job) -> Path:
                 other = int(path.read_text().strip() or "0")
             except (OSError, ValueError):
                 other = 0
+            try:
+                fresh = time.time() - path.stat().st_mtime < 5
+            except OSError:
+                fresh = False
+            if other == 0 and fresh:
+                raise RunBusy("This job is starting in another process.")
             if _pid_alive(other):
                 raise RunBusy("This job is already running (process %d)." % other)
             try:
@@ -658,6 +781,21 @@ def _acquire_lock(job: Job) -> Path:
             fh.write(str(os.getpid()))
         return path
     raise RunBusy("Could not take the run lock for this job.")
+
+
+_stamp_lock = threading.Lock()
+_last_stamp = [""]
+
+
+def _unique_stamp() -> str:
+    """YYYYMMDD-HHMMSS, never the same twice in this process: two runs must not share (and overwrite) a backup folder."""
+    with _stamp_lock:
+        while True:
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            if stamp != _last_stamp[0]:
+                _last_stamp[0] = stamp
+                return stamp
+            time.sleep(0.2)
 
 
 class SyncRun:
@@ -679,7 +817,7 @@ class SyncRun:
 
     def start(self) -> None:
         job = self.job
-        stamp = time.strftime("%Y%m%d-%H%M")
+        stamp = _unique_stamp()      # seconds: two runs in one minute must not share (and overwrite) a backup folder
         args = build_args(job, self.real, stamp)
         self._lock = _acquire_lock(job)
         try:
@@ -742,6 +880,8 @@ class SyncRun:
             self._log.write(text + "\n")
             self.events.put(("log", {"level": level, "text": text}))
             kind = classify(msg, level)
+            if job.mode == "move" and kind in ("replace", "backup"):
+                kind = "upload"         # in a Move the same 'Moved' line is the transfer itself; do not call it a backup
             if kind:
                 # a replaced file logs one 'moved' line, a deleted file logs two: count each path once
                 bucket_name = "backup" if kind in ("backup", "replace") else kind
@@ -764,9 +904,10 @@ class SyncRun:
         self._log.write("# exit code %s (%s)\n" % (code, exit_meaning(code)))
         self._log.close()
         self._release()
+        meaning = "stopped by you; files that were already finished are kept" if self.stopping else exit_meaning(code)
         result = RunResult(
             code=code, real=self.real, stopped=self.stopping, elapsed=elapsed, counts=counts, errors=errors[:50],
-            log_path=self.log_path, meaning=exit_meaning(code), summary=_summary(self.real, counts, errors, job.mode),
+            log_path=self.log_path, meaning=meaning, summary=_summary(self.real, counts, errors, job.mode),
         )
         self.events.put(("done", {"result": result, "stats": last_stats}))
 
@@ -776,14 +917,15 @@ class SyncRun:
         if proc is None or proc.poll() is not None:
             return
         self.stopping = True
-        try:
-            if IS_WIN:
-                proc.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
-            else:
-                os.killpg(proc.pid, signal.SIGINT)
-        except Exception:
-            proc.terminate()
-        timer = threading.Timer(6.0, self.kill)
+
+        def _go() -> None:
+            try:
+                interrupt(proc)
+            except Exception:
+                proc.terminate()
+
+        threading.Thread(target=_go, name="rclone-stop", daemon=True).start()
+        timer = threading.Timer(10.0, self.kill)
         timer.daemon = True
         timer.start()
 
@@ -938,6 +1080,9 @@ def cli_main(argv: List[str]) -> int:
     if problems:
         out("\n".join(problems) + "\n")
         return 2
+    if real and move_gate(job):
+        out(str(move_gate(job)) + "\n")
+        return 2
     events: "queue.Queue[Tuple[str, Any]]" = queue.Queue()
     run = SyncRun(rclone or "rclone", job, real, events)
     try:
@@ -954,8 +1099,15 @@ def cli_main(argv: List[str]) -> int:
             res: RunResult = payload["result"]
             out("\n%s\nexit code %s - %s\nlog: %s\n" % (res.summary, res.code, res.meaning, res.log_path))
             code = res.code
-            job.last_run, job.last_mode, job.last_code, job.last_summary = (
-                time.strftime("%Y-%m-%d %H:%M"), "run" if real else "dry run", res.code, res.summary)
-            save_store(store)
+            fresh = load_store()        # re-read: the window may have saved changes while this ran
+            target = next((j for j in fresh.jobs if j.id == job.id), None)
+            if target is not None:
+                target.last_run, target.last_mode, target.last_code, target.last_summary = (
+                    time.strftime("%Y-%m-%d %H:%M"), "run" if real else "dry run", res.code, res.summary)
+                if not real and not res.stopped and res.code in (0, 9):
+                    target.dry_sig, target.dry_ts = job_signature(target), time.time()
+                elif real and job.mode == "move":
+                    target.dry_sig, target.dry_ts = "", 0.0       # a dry run unlocks one real Move, not many
+                save_store(fresh)
             break
     return code if code is not None else 1

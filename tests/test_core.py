@@ -350,6 +350,7 @@ class TestLocalDestination(Base):
         self.assertEqual(a[a.index("--backup-dir") + 1], os.path.join(os.path.normpath(j.backup_root), "src", "STAMP"))
 
     def test_validation(self):
+        self.write(self.src, "x.txt", "x")      # sync refuses an empty source
         base = self.ljob()
         self.assertEqual(core.validate_job(base, "rclone"), [])
         j = self.ljob(target="relative/folder")

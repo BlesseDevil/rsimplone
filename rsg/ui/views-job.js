@@ -169,9 +169,9 @@ function tabSetup(job) {
   const tgt = inputFor(job, "target", { placeholder: local ? "Full path of the destination" : "e.g. Backups/Photos", after: debounce(() => checkDest(job), 600) });
   dest.append(h("div", { class: "grid2", style: "margin-top:.7rem" },
     h("div", { class: "stack", style: "gap:.3rem" }, h("label", { class: "f" }, "Destination folder"), h("div", { class: "row" }, h("div", { class: "grow" }, tgt), pickBtn("target")), verdictLine("v-target")),
-    h("div", { class: "stack", style: "gap:.3rem" }, h("label", { class: "f" }, job.mode === "copy" || job.mode === "move" ? "Backup folder · optional" : "Backup folder · required"),
+    h("div", { class: "stack", style: "gap:.3rem" }, h("label", { class: "f" }, job.mode === "copy" ? "Backup folder · optional" : "Backup folder · required"),
       h("div", { class: "row" }, h("div", { class: "grow" }, inputFor(job, "backup_root", { placeholder: local ? "Full path" : "e.g. Backups/_old", after: debounce(() => checkDest(job), 600) })), pickBtn("backup_root")), verdictLine("v-backup"))));
-  dest.append(h("div", { class: "note", style: "margin-top:.5rem" }, "Replaced or removed files go to ", h("code", {}, "<backup>/<source name>/<YYYYMMDD-HHMM>/"), " on the same remote: instant, no re-upload."));
+  dest.append(h("div", { class: "note", style: "margin-top:.5rem" }, "Replaced or removed files go to ", h("code", {}, "<backup>/<source name>/<YYYYMMDD-HHMMSS>/"), " on the same remote: instant, no re-upload."));
   stack.append(dest);
 
   stack.append(h("div", { id: "problems" }));
@@ -197,7 +197,7 @@ async function checkDest(job) {
   if (job.dest_kind === "local") {
     for (const [key, vid] of [["target", "v-target"], ["backup_root", "v-backup"]]) {
       const p = (job[key] || "").trim();
-      if (!p) { setVerdict(vid, "", null, key === "backup_root" && job.mode !== "sync" ? "No backup folder: replaced files are overwritten." : ""); continue; }
+      if (!p) { setVerdict(vid, "", null, key === "backup_root" && job.mode === "copy" ? "No backup folder: replaced files are overwritten." : ""); continue; }
       const info = await must("path_info", p); if (!info) continue;
       setVerdict(vid, info.exists ? "ok" : "warn", info.exists ? "check" : "alert",
         (info.exists ? "Found" : "New folder, will be created") + (info.free ? ` · ${info.free} free of ${info.total}` : ""));

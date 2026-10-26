@@ -31,7 +31,7 @@ from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
 from . import core, mounts
 
-DRY_RUN_VALID_SECONDS = 24 * 3600
+DRY_RUN_VALID_SECONDS = core.DRY_RUN_VALID_SECONDS
 CONSOLE_LINES = 5000
 
 
@@ -149,11 +149,11 @@ class RunManager:
         problems = core.validate_job(job, rclone)
         if problems:
             raise RunRefused(" ".join(problems))
-        if real and job.mode == "move":
-            fresh = time.time() - job.dry_ts < DRY_RUN_VALID_SECONDS
-            if not (job.dry_sig and job.dry_sig == core.job_signature(job) and fresh):
-                raise RunRefused("A real Move deletes the source files. Run a dry run of this exact job first "
-                                 "(it stays valid for 24 hours and until you change the job).")
+        if real and core.move_gate(job):
+            raise RunRefused(str(core.move_gate(job)))
+        why = self._remote_inside_local(rclone, job)
+        if why:
+            raise RunRefused(why)
         with self._lock:
             why = conflicts(job, self.running_jobs())
             if why:
@@ -173,6 +173,29 @@ class RunManager:
             rec.log_path, rec.backup_dir = run.log_path, run.backup_dir
         self._emit(run_id, "state", rec.view())
         return run_id
+
+    @staticmethod
+    def _remote_inside_local(rclone: Optional[str], job: core.Job) -> Optional[str]:
+        """A remote can secretly be a folder on this computer (local, alias, crypt over a local folder...). If so the
+        usual folder-overlap rules apply to it as well."""
+        if not rclone or core.is_local(job) or not job.remote:
+            return None
+        base = core.remote_local_root(rclone, job.remote)
+        if base is None:
+            return None
+        places = []
+        for label, rel in (("destination", job.target), ("backup folder", job.backup_root)):
+            if not rel.strip():
+                continue
+            path = os.path.join(base, core.norm_remote_path(rel)) if base else core.norm_remote_path(rel).replace("/", os.sep)
+            if os.path.isabs(path):
+                places.append((label, path))
+        for label, path in places:
+            if core.local_overlap(job.source, path):
+                return "The %s is, through the remote '%s', a folder inside (or around) your source folder. Choose a separate place." % (label, job.remote)
+        if len(places) == 2 and core.local_overlap(places[0][1], places[1][1]):
+            return "Through the remote '%s' the destination and the backup folder overlap." % job.remote
+        return None
 
     def start_mount(self, spec: mounts.MountSpec) -> str:
         rclone = self.rclone_getter()
