@@ -20,6 +20,7 @@
 """Portable logic for rSimpLone, the rclone copy/sync/move manager. Standard library only, no GUI imports."""
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import queue
@@ -43,14 +44,14 @@ LEGACY_APP_NAME = "rclone-sync-gui"
 IS_WIN = sys.platform.startswith("win")
 MODES = ("copy", "sync", "move")
 MODE_HELP = {
-    "copy": "Adds new and changed files. Never deletes anything.",
+    "copy": "Adds new and changed files. Never deletes anything (a changed file replaces the old copy: set a backup folder to keep it).",
     "sync": "Mirrors the source. Anything replaced or removed goes into the backup folder, never lost.",
     "move": "Transfers files, then removes the originals. Always preview with a dry run first.",
 }
 
 EXIT_MEANINGS = {
     0: "success - finished without errors",
-    1: "syntax or usage error - rclone did not understand the command or a flag",
+    1: "error - a usage/syntax problem or file errors; see the log",
     2: "uncategorised error - see the errors listed in the log",
     3: "directory not found - the source or destination folder does not exist",
     4: "file not found",
@@ -221,8 +222,23 @@ def paths_overlap(a: str, b: str) -> bool:
     return a == b or a.startswith(b + "/") or b.startswith(a + "/")
 
 
+def _real(path: str) -> str:
+    """A comparable form of a local path: absolute, symlinks/junctions/8.3 names resolved, no \\\\?\\ prefix."""
+    p = os.path.realpath(os.path.abspath(path))
+    for prefix in ("\\\\?\\UNC\\", "\\\\?\\"):
+        if p.startswith(prefix):
+            p = ("\\\\" + p[len(prefix):]) if "UNC" in prefix else p[len(prefix):]
+            break
+    return os.path.normcase(p)
+
+
+def is_drive_root(path: str) -> bool:
+    p = os.path.abspath(path)
+    return os.path.dirname(p) == p
+
+
 def local_overlap(a: str, b: str) -> bool:
-    a, b = os.path.normcase(os.path.abspath(a)), os.path.normcase(os.path.abspath(b))
+    a, b = _real(a), _real(b)
     ap, bp = (a if a.endswith(os.sep) else a + os.sep), (b if b.endswith(os.sep) else b + os.sep)    # 'C:\' already ends in a separator
     return ap.startswith(bp) or bp.startswith(ap)
 
@@ -253,24 +269,28 @@ def check_path(path: str, dirs: List[str], depth: int) -> PathVerdict:
     return verdict
 
 
-MOVE_UNSAFE = {"--update", "--size-only", "--ignore-size", "--no-check-dest"}
+MOVE_UNSAFE = {"--update", "--size-only", "--ignore-size", "--no-check-dest", "--ignore-checksum", "--compare-dest", "--copy-dest"}
 
 
 def _move_unsafe(job: Job) -> List[str]:
-    """Flags that let a Move delete a source file without a verified copy (or switch the verification off)."""
-    names = {k for k, v in (job.flags or {}).items() if v not in (False, None, "")}
-    if (job.flags or {}).get("--checksum") is False:
-        names.add("--checksum (off)")
+    """Look at the FINAL command line of a Move (not at how the flags were typed): the checksum verification must be
+    on, and nothing that skips or weakens it may be present, whichever way it got there (flags, extra, a flag value)."""
     try:
-        tokens = shlex.split(job.extra or "")
+        args = build_args(job, False, "STAMP")
     except ValueError:
-        tokens = []
-    for t in tokens:
-        if t.startswith("--"):
-            names.add(t.split("=", 1)[0])
-        elif re.match(r"^-[A-Za-z]+(=.*)?$", t) and "u" in t.split("=", 1)[0][1:]:
-            names.add("--update")
-    return sorted(names & (MOVE_UNSAFE | {"--checksum (off)"}))
+        return []
+    bad = set()
+    for t in args[3:]:
+        if not t.startswith("-"):
+            continue
+        name = t.split("=", 1)[0]
+        if name in MOVE_UNSAFE:
+            bad.add(name)
+        elif re.match(r"^-[A-Za-z]+$", name) and "u" in name[1:]:
+            bad.add("--update")
+    if "--checksum" not in args or any(t.split("=", 1)[0] == "--checksum" and "=" in t for t in args):
+        bad.add("--checksum (off)")
+    return sorted(bad)
 
 
 def _is_empty_dir(path: str) -> bool:
@@ -295,6 +315,8 @@ def validate_job(job: Job, rclone: Optional[str]) -> List[str]:
         unsafe = _move_unsafe(job)
         if unsafe:
             errors.append("%s can make Move delete a source file whose copy is not verified; remove it for Move jobs." % ", ".join(unsafe))
+    if job.source and os.path.isabs(job.source) and is_drive_root(job.source):
+        errors.append("Choose a folder inside the drive as the source, not the whole drive.")
     if job.mode in ("sync", "move") and job.source and os.path.isdir(job.source) and _is_empty_dir(job.source):
         errors.append("The source folder is empty. %s would treat everything at the destination as removed. "
                       "If a drive is disconnected, reconnect it; otherwise use Copy." % job.mode.capitalize())
@@ -447,33 +469,115 @@ def list_remotes(rclone: str) -> List[Tuple[str, str]]:
 
 
 _WRAPPING_TYPES = ("alias", "crypt", "compress", "chunker", "hasher", "cache")
+_UPSTREAM_TAG = re.compile(r":(ro|nc|writeback)$")
 
 
-def remote_local_root(rclone: str, name: str, _depth: int = 0) -> Optional[str]:
-    """When a remote is only a window onto a folder of THIS computer (type local, or an alias / crypt / ... of one),
-    return that folder ('' for a plain local remote, whose paths are real paths). Otherwise None.
-    Used to refuse a destination that would end up inside the source or the backup folder."""
-    if _depth > 6:
-        return None
-    try:
-        code, out, _ = run_capture(rclone, ["config", "dump"], timeout=30)
-        entry = json.loads(out).get(name) if code == 0 else None
-    except (RcloneError, ValueError):
-        return None
+def _spec_roots(rclone: str, config: Dict[str, Any], spec: str, depth: int) -> List[str]:
+    spec = _UPSTREAM_TAG.sub("", spec.strip())
+    m = re.match(r"^:local(?:,[^:]*)?:(.*)$", spec)
+    if m:
+        return [m.group(1)]
+    if re.match(r"^[A-Za-z]:[\\/]", spec) or spec.startswith(("/", "\\")):
+        return [spec]
+    if ":" in spec and depth < 8:
+        inner, sub = spec.split(":", 1)
+        return [os.path.join(r, sub) if r else sub for r in _remote_roots(rclone, config, inner, depth + 1)]
+    return []
+
+
+def _remote_roots(rclone: str, config: Dict[str, Any], name: str, depth: int) -> List[str]:
+    entry = config.get(name)
     if not isinstance(entry, dict):
-        return None
+        return []
     kind = entry.get("type", "")
     if kind == "local":
-        return ""
+        return [""]
     if kind in _WRAPPING_TYPES:
-        target = str(entry.get("remote", ""))
-        if re.match(r"^[A-Za-z]:[\\/]", target) or target.startswith(("/", "\\")):
-            return target
-        if ":" in target:
-            inner, sub = target.split(":", 1)
-            base = remote_local_root(rclone, inner, _depth + 1)
-            return None if base is None else os.path.join(base, sub) if base else sub
+        return _spec_roots(rclone, config, str(entry.get("remote", "")), depth)
+    if kind in ("union", "combine"):
+        roots: List[str] = []
+        for tok in str(entry.get("upstreams", "")).split():
+            roots += _spec_roots(rclone, config, tok.split("=", 1)[1] if kind == "combine" and "=" in tok else tok, depth)
+        return roots
+    return []
+
+
+def remote_local_roots(rclone: str, name: str) -> List[str]:
+    """When a remote is only a window onto folders of THIS computer (type local, or alias / crypt / union / combine /
+    ... over them, or a ':local:' connection string), return those folders ('' for a plain local remote, whose paths
+    are real paths). Raises RcloneError when the rclone configuration cannot be read (fail closed)."""
+    code, out, err = run_capture(rclone, ["config", "dump"], timeout=30)
+    if code != 0:
+        raise RcloneError("could not read the rclone configuration to check the destination")
+    try:
+        config = json.loads(out)
+    except ValueError:
+        raise RcloneError("could not read the rclone configuration to check the destination")
+    return _remote_roots(rclone, config, name, 0)
+
+
+def resolved_places(rclone: Optional[str], job: Job) -> List[Tuple[str, str]]:
+    """[(label, absolute local path)] for the destination / backup of a job whose remote is really a local folder."""
+    if not rclone or is_local(job) or not job.remote:
+        return []
+    places: List[Tuple[str, str]] = []
+    for base in remote_local_roots(rclone, job.remote):
+        for label, rel in (("destination", job.target), ("backup folder", job.backup_root)):
+            if not rel.strip():
+                continue
+            path = os.path.join(base, norm_remote_path(rel)) if base else norm_remote_path(rel).replace("/", os.sep)
+            if os.path.isabs(path):
+                places.append((label, path))
+    return places
+
+
+def remote_inside_local(rclone: Optional[str], job: Job) -> Optional[str]:
+    """A message when the job's destination/backup, reached through a remote that is really a local folder, overlaps
+    the source (or each other); None when fine. Also None when the remote is a genuine cloud remote."""
+    try:
+        places = resolved_places(rclone, job)
+    except RcloneError as exc:
+        return "%s. Fix your rclone configuration and try again." % exc
+    for label, path in places:
+        if local_overlap(job.source, path):
+            return ("The %s is, through the remote '%s', a folder inside (or around) your source folder. "
+                    "Choose a separate place." % (label, job.remote))
+    dests = [p for lab, p in places if lab == "destination"]
+    backs = [p for lab, p in places if lab == "backup folder"]
+    if any(local_overlap(d, b) for d in dests for b in backs):
+        return "Through the remote '%s' the destination and the backup folder overlap." % job.remote
     return None
+
+
+def footprint(job: Job, rclone: Optional[str] = None) -> List[Tuple[str, str, bool]]:
+    """(place kind, place, writes) for everything a job touches. Remote places are 'remote:path'."""
+    out: List[Tuple[str, str, bool]] = []
+    if is_local(job):
+        for p in (job.target, job.backup_root):
+            if p.strip():
+                out.append(("local", _real(p), True))
+    else:
+        for p in (job.target, job.backup_root):
+            if p.strip():
+                out.append(("remote", job.remote + ":" + norm_remote_path(p), True))
+        try:
+            for _label, path in resolved_places(rclone, job):
+                out.append(("local", _real(path), True))
+        except RcloneError:
+            pass
+    if job.source.strip():
+        out.append(("local", _real(job.source), job.mode == "move"))
+    return out
+
+
+def same_place(a: Tuple[str, str, bool], b: Tuple[str, str, bool]) -> bool:
+    if a[0] != b[0]:
+        return False
+    if a[0] == "local":
+        return local_overlap(a[1], b[1])
+    ra, pa = a[1].split(":", 1)
+    rb, pb = b[1].split(":", 1)
+    return ra == rb and (not pa or not pb or paths_overlap(pa, pb))
 
 
 _REMOTE_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.+-]*$")
@@ -568,8 +672,7 @@ def build_args(job: Job, real: bool, stamp: str, *, for_script: bool = False, lo
     m["--retries"] = "3"
     if job.mode == "move":
         m["--checksum"] = None             # never delete a source file just because size and time look equal
-        if local:
-            m["--disable"] = "DirMove"     # otherwise a missing destination makes rclone rename the whole source folder away
+        m["--disable"] = "DirMove"         # otherwise a missing destination makes rclone rename the whole source folder away
     if job.api_low and not local:
         # fewer Drive calls: a steady request rate so rate limiting does not force wasted retries, and fewer
         # low-level retries (bigger upload chunks and --fast-list are set above)
@@ -753,17 +856,42 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
-def _acquire_lock(job: Job) -> Path:
-    path = config_dir() / "locks" / ("%s.lock" % job.id)
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _read_lock(path: Path) -> Tuple[int, List[Tuple[str, str, bool]], str]:
+    try:
+        text = path.read_text().strip()
+    except OSError:
+        return 0, [], ""
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return int(data.get("pid", 0)), [tuple(x) for x in data.get("foot", [])], str(data.get("name", ""))  # type: ignore[misc]
+    except ValueError:
+        pass
+    try:
+        return int(text or "0"), [], ""
+    except ValueError:
+        return 0, [], ""
+
+
+def _acquire_lock(job: Job, rclone: Optional[str] = None) -> Path:
+    folder = config_dir() / "locks"
+    path = folder / ("%s.lock" % job.id)
+    folder.mkdir(parents=True, exist_ok=True)
+    mine = footprint(job, rclone)
+    for other_path in folder.glob("*.lock"):       # another process may be running a job that touches the same places
+        if other_path == path or other_path.name == "store.lock":
+            continue
+        pid, foot, name = _read_lock(other_path)
+        if pid and pid != os.getpid() and _pid_alive(pid):
+            for a in mine:
+                for b in foot:
+                    if (a[2] or b[2]) and same_place(a, b):
+                        raise RunBusy("'%s' is running in another rSimpLone process and works on the same place." % (name or "another job"))
     for _ in range(2):
         try:
             fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
-            try:
-                other = int(path.read_text().strip() or "0")
-            except (OSError, ValueError):
-                other = 0
+            other, _foot, _name = _read_lock(path)
             try:
                 fresh = time.time() - path.stat().st_mtime < 5
             except OSError:
@@ -778,9 +906,57 @@ def _acquire_lock(job: Job) -> Path:
                 pass
             continue
         with os.fdopen(fd, "w") as fh:
-            fh.write(str(os.getpid()))
+            fh.write(json.dumps({"pid": os.getpid(), "name": job.name, "foot": mine}))
         return path
     raise RunBusy("Could not take the run lock for this job.")
+
+
+@contextlib.contextmanager
+def _store_lock(timeout: float = 8.0):
+    """A short-lived lock around read-modify-write of jobs.json, so the window and the headless mode cannot interleave."""
+    path = config_dir() / "locks" / "store.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    end = time.time() + timeout
+    while True:
+        try:
+            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            break
+        except FileExistsError:
+            try:
+                if time.time() - path.stat().st_mtime > 15:       # a crashed holder
+                    path.unlink()
+                    continue
+            except OSError:
+                pass
+            if time.time() > end:
+                raise RunBusy("jobs.json is busy; try again.")
+            time.sleep(0.05)
+    try:
+        yield
+    finally:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+def consume_move_unlock(job: Job) -> Optional[str]:
+    """Use up the dry-run unlock of a Move, atomically across processes (what is on disk is the truth, not this
+    process's memory). Returns a refusal message, or None when the real Move may start NOW. Call it right before starting."""
+    refusal = ("A real Move removes the source files. Run a dry run of this exact job first "
+               "(it stays valid for 24 hours, for one real run, and until you change the job).")
+    sig = job_signature(job)
+    with _store_lock():
+        store = load_store()
+        disk = next((j for j in store.jobs if j.id == job.id), None)
+        if disk is None or not disk.dry_sig or disk.dry_sig != sig or time.time() - float(disk.dry_ts or 0) >= DRY_RUN_VALID_SECONDS:
+            job.dry_sig, job.dry_ts = "", 0.0
+            return refusal
+        disk.dry_sig, disk.dry_ts = "", 0.0
+        save_store(store)
+    job.dry_sig, job.dry_ts = "", 0.0
+    return None
 
 
 _stamp_lock = threading.Lock()
@@ -819,7 +995,7 @@ class SyncRun:
         job = self.job
         stamp = _unique_stamp()      # seconds: two runs in one minute must not share (and overwrite) a backup folder
         args = build_args(job, self.real, stamp)
-        self._lock = _acquire_lock(job)
+        self._lock = _acquire_lock(job, self.rclone)
         try:
             safe = re.sub(r"[^A-Za-z0-9._-]+", "_", job.name).strip("_") or job.id
             folder = log_dir() / safe
@@ -849,6 +1025,12 @@ class SyncRun:
                 pass
             self._lock = None
 
+    def _w(self, text: str) -> None:
+        try:
+            self._log.write(text)
+        except (OSError, ValueError):       # disk full or closed log: the run itself must still finish and be reported
+            pass
+
     def _reader(self) -> None:
         job = self.job
         started = time.time()
@@ -858,51 +1040,57 @@ class SyncRun:
         last_stats: Dict[str, Any] = {}
         assert self.proc is not None and self.proc.stderr is not None
         for line in self.proc.stderr:
-            line = line.rstrip("\r\n")
-            if not line:
-                continue
             try:
-                rec = json.loads(line)
-            except ValueError:
-                self._log.write(line + "\n")
-                self.events.put(("log", {"level": "info", "text": line}))
+                line = line.rstrip("\r\n")
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    self._w(line + "\n")
+                    self.events.put(("log", {"level": "info", "text": line}))
+                    continue
+                if not isinstance(rec, dict):
+                    continue
+                stats = rec.get("stats")
+                if isinstance(stats, dict):
+                    last_stats = stats
+                    self.events.put(("stats", stats))
+                    continue
+                msg, level, obj = str(rec.get("msg", "")), str(rec.get("level", "info")), str(rec.get("object", ""))
+                stamp = str(rec.get("time", ""))[:19].replace("T", " ").replace("-", "/")
+                text = "%s %-5s : %s%s" % (stamp, level.upper(), (obj + ": ") if obj else "", msg)   # rclone's own layout
+                self._w(text + "\n")
+                self.events.put(("log", {"level": level, "text": text}))
+                kind = classify(msg, level)
+                if job.mode == "move" and kind in ("replace", "backup"):
+                    kind = "upload"         # in a Move the same 'Moved' line is the transfer itself; do not call it a backup
+                if kind:
+                    # a replaced file logs one 'moved' line, a deleted file logs two: count each path once
+                    bucket_name = "backup" if kind in ("backup", "replace") else kind
+                    bucket = seen.setdefault(bucket_name, set())
+                    key = obj or msg
+                    if kind == "error":
+                        errors.append(("%s: %s" % (obj, msg)) if obj else msg)
+                        counts["error"] = counts.get("error", 0) + 1
+                    elif key not in bucket:
+                        bucket.add(key)
+                        counts[bucket_name] = counts.get(bucket_name, 0) + 1
+                    self.events.put(("activity", {"kind": kind, "path": obj, "detail": msg}))
+            except Exception:       # one odd line must not end the reader (that would hang the run)
                 continue
-            if not isinstance(rec, dict):
-                continue
-            stats = rec.get("stats")
-            if isinstance(stats, dict):
-                last_stats = stats
-                self.events.put(("stats", stats))
-                continue
-            msg, level, obj = str(rec.get("msg", "")), str(rec.get("level", "info")), str(rec.get("object", ""))
-            stamp = str(rec.get("time", ""))[:19].replace("T", " ").replace("-", "/")
-            text = "%s %-5s : %s%s" % (stamp, level.upper(), (obj + ": ") if obj else "", msg)   # rclone's own layout
-            self._log.write(text + "\n")
-            self.events.put(("log", {"level": level, "text": text}))
-            kind = classify(msg, level)
-            if job.mode == "move" and kind in ("replace", "backup"):
-                kind = "upload"         # in a Move the same 'Moved' line is the transfer itself; do not call it a backup
-            if kind:
-                # a replaced file logs one 'moved' line, a deleted file logs two: count each path once
-                bucket_name = "backup" if kind in ("backup", "replace") else kind
-                bucket = seen.setdefault(bucket_name, set())
-                key = obj or msg
-                if kind == "error":
-                    errors.append(("%s: %s" % (obj, msg)) if obj else msg)
-                    counts["error"] = counts.get("error", 0) + 1
-                elif key not in bucket:
-                    bucket.add(key)
-                    counts[bucket_name] = counts.get(bucket_name, 0) + 1
-                self.events.put(("activity", {"kind": kind, "path": obj, "detail": msg}))
         code = self.proc.wait()
         self.proc.stderr.close()
         elapsed = time.time() - started
         # rclone ends with a final stats block; keep the last numbers in the log so the file is self-contained
         if last_stats:
-            self._log.write("\n# final stats: %s\n" % json.dumps({k: last_stats.get(k) for k in (
+            self._w("\n# final stats: %s\n" % json.dumps({k: last_stats.get(k) for k in (
                 "bytes", "totalBytes", "transfers", "totalTransfers", "checks", "totalChecks", "errors", "elapsedTime")}))
-        self._log.write("# exit code %s (%s)\n" % (code, exit_meaning(code)))
-        self._log.close()
+        self._w("# exit code %s (%s)\n" % (code, exit_meaning(code)))
+        try:
+            self._log.close()
+        except OSError:
+            pass
         self._release()
         meaning = "stopped by you; files that were already finished are kept" if self.stopping else exit_meaning(code)
         result = RunResult(
@@ -1083,6 +1271,15 @@ def cli_main(argv: List[str]) -> int:
     if real and move_gate(job):
         out(str(move_gate(job)) + "\n")
         return 2
+    why = remote_inside_local(rclone, job)
+    if why:
+        out(why + "\n")
+        return 2
+    if real and job.mode == "move":
+        refusal = consume_move_unlock(job)
+        if refusal:
+            out(refusal + "\n")
+            return 2
     events: "queue.Queue[Tuple[str, Any]]" = queue.Queue()
     run = SyncRun(rclone or "rclone", job, real, events)
     try:
@@ -1099,15 +1296,15 @@ def cli_main(argv: List[str]) -> int:
             res: RunResult = payload["result"]
             out("\n%s\nexit code %s - %s\nlog: %s\n" % (res.summary, res.code, res.meaning, res.log_path))
             code = res.code
-            fresh = load_store()        # re-read: the window may have saved changes while this ran
-            target = next((j for j in fresh.jobs if j.id == job.id), None)
-            if target is not None:
-                target.last_run, target.last_mode, target.last_code, target.last_summary = (
-                    time.strftime("%Y-%m-%d %H:%M"), "run" if real else "dry run", res.code, res.summary)
-                if not real and not res.stopped and res.code in (0, 9):
-                    target.dry_sig, target.dry_ts = job_signature(target), time.time()
-                elif real and job.mode == "move":
-                    target.dry_sig, target.dry_ts = "", 0.0       # a dry run unlocks one real Move, not many
-                save_store(fresh)
+            with _store_lock():
+                fresh = load_store()        # re-read: the window may have saved changes while this ran
+                target = next((j for j in fresh.jobs if j.id == job.id), None)
+                if target is not None:
+                    target.last_run, target.last_mode, target.last_code, target.last_summary = (
+                        time.strftime("%Y-%m-%d %H:%M"), "run" if real else "dry run", res.code, res.summary)
+                    if not real and not res.stopped and res.code in (0, 9):
+                        # the signature of the job AS IT WAS DRY-RUN: if it was edited meanwhile the gate stays closed
+                        target.dry_sig, target.dry_ts = job_signature(job), time.time()
+                    save_store(fresh)
             break
     return code if code is not None else 1

@@ -25,6 +25,7 @@ import collections
 import copy
 import functools
 import json
+import math
 import shutil
 import threading
 import time
@@ -67,7 +68,10 @@ def _coerce(name: str, value: Any, sample: Any) -> Any:
         if isinstance(sample, int):
             return int(float(value))
         if isinstance(sample, float):
-            return float(value)
+            f = float(value)
+            if not math.isfinite(f):
+                raise ValueError
+            return f
         if isinstance(sample, str):
             return "" if value is None else str(value)
         if isinstance(sample, dict):
@@ -86,7 +90,7 @@ def _job_from(d: Dict[str, Any], base: Optional[core.Job] = None) -> core.Job:
         if k in known and k not in ("id", "last_run", "last_mode", "last_code", "last_summary", "dry_sig", "dry_ts", "schedule"):
             setattr(job, k, _coerce(k, v, getattr(job, k)))
     if job.mode not in core.MODES:
-        job.mode = "copy"
+        raise ValueError("Unknown job type '%s'." % job.mode)
     job.dest_kind = "local" if job.dest_kind == "local" else "remote"
     return job
 
@@ -387,6 +391,7 @@ class Api:
             job.name = (job.name or "").strip() or "Untitled job"
             job.flags = flagmod.clean_overrides(job.flags, self.catalogue)
             job.checkers, job.transfers = max(0, job.checkers), max(0, job.transfers)
+            core.build_args(job, False, "STAMP")        # raises ValueError for flags the app owns: refuse the save
             self.store.jobs[self.store.jobs.index(old)] = job
             self._save()
         return self._job_view(job)
@@ -430,8 +435,12 @@ class Api:
         name, text = core.export_script(job, self.rclone or "rclone")
         out = core.config_dir() / "scripts"
         out.mkdir(parents=True, exist_ok=True)
+        problems = core.validate_job(job, self.rclone)
+        if problems:
+            raise ValueError("Fix the job first: " + problems[0])
         path = out / name
-        path.write_text(text, encoding="utf-8", newline="")
+        with open(path, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
         return {"path": str(path)}
 
     # ---- checking folders -------------------------------------------------------------------------------------
@@ -559,6 +568,8 @@ class Api:
         with self.lock:
             job = self._job(job_id)
             s = schedule.normalize(sched)
+            if s["enabled"] and s["real"] and job.mode == "move":
+                raise ValueError("Scheduled real Moves are not allowed. Schedule dry runs, or run a Move by hand.")
             if s["enabled"] and s["real"]:
                 if confirm.strip() != CONFIRM_WORD:
                     raise ValueError("Type %s to allow scheduled real runs of this job." % CONFIRM_WORD)

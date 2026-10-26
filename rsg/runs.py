@@ -49,32 +49,8 @@ class _Tagged:
         self.sink.put((self.run_id, item[0], item[1]))
 
 
-def _footprint(job: core.Job) -> List[Tuple[str, str, bool]]:
-    """(place kind, place, writes) for everything a job touches. Remote places are 'remote:path'."""
-    out: List[Tuple[str, str, bool]] = []
-    if core.is_local(job):
-        if job.target.strip():
-            out.append(("local", os.path.normcase(os.path.abspath(job.target)), True))
-        if job.backup_root.strip():
-            out.append(("local", os.path.normcase(os.path.abspath(job.backup_root)), True))
-    else:
-        if job.target.strip():
-            out.append(("remote", job.remote + ":" + core.norm_remote_path(job.target), True))
-        if job.backup_root.strip():
-            out.append(("remote", job.remote + ":" + core.norm_remote_path(job.backup_root), True))
-    if job.source.strip():
-        out.append(("local", os.path.normcase(os.path.abspath(job.source)), job.mode == "move"))
-    return out
-
-
-def _same_place(a: Tuple[str, str, bool], b: Tuple[str, str, bool]) -> bool:
-    if a[0] != b[0]:
-        return False
-    if a[0] == "local":
-        return core.local_overlap(a[1], b[1])
-    ra, pa = a[1].split(":", 1)
-    rb, pb = b[1].split(":", 1)
-    return ra == rb and (not pa or not pb or core.paths_overlap(pa, pb))
+_footprint = core.footprint
+_same_place = core.same_place
 
 
 def conflicts(job: core.Job, running: List[core.Job]) -> Optional[str]:
@@ -158,6 +134,10 @@ class RunManager:
             why = conflicts(job, self.running_jobs())
             if why:
                 raise RunRefused(why)
+            if real and job.mode == "move":
+                refusal = core.consume_move_unlock(job)       # atomic, on disk: one dry run unlocks one real Move
+                if refusal:
+                    raise RunRefused(refusal)
             run_id = uuid.uuid4().hex[:10]
             rec = Record(run_id, "job", job.name, job=job, real=real)
             run = core.SyncRun(rclone or "rclone", job, real, _Tagged(run_id, self._q))   # type: ignore[arg-type]
@@ -176,26 +156,7 @@ class RunManager:
 
     @staticmethod
     def _remote_inside_local(rclone: Optional[str], job: core.Job) -> Optional[str]:
-        """A remote can secretly be a folder on this computer (local, alias, crypt over a local folder...). If so the
-        usual folder-overlap rules apply to it as well."""
-        if not rclone or core.is_local(job) or not job.remote:
-            return None
-        base = core.remote_local_root(rclone, job.remote)
-        if base is None:
-            return None
-        places = []
-        for label, rel in (("destination", job.target), ("backup folder", job.backup_root)):
-            if not rel.strip():
-                continue
-            path = os.path.join(base, core.norm_remote_path(rel)) if base else core.norm_remote_path(rel).replace("/", os.sep)
-            if os.path.isabs(path):
-                places.append((label, path))
-        for label, path in places:
-            if core.local_overlap(job.source, path):
-                return "The %s is, through the remote '%s', a folder inside (or around) your source folder. Choose a separate place." % (label, job.remote)
-        if len(places) == 2 and core.local_overlap(places[0][1], places[1][1]):
-            return "Through the remote '%s' the destination and the backup folder overlap." % job.remote
-        return None
+        return core.remote_inside_local(rclone, job)
 
     def start_mount(self, spec: mounts.MountSpec) -> str:
         rclone = self.rclone_getter()

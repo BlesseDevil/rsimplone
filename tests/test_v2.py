@@ -71,6 +71,13 @@ class Base(unittest.TestCase):
         return {str(p.relative_to(base)).replace("\\", "/"): p.read_text(encoding="utf-8")
                 for p in Path(base).rglob("*") if p.is_file()}
 
+    def allow(self, j, ts=None):
+        """Record a successful dry run on disk, the way the app does (the unlock is read from jobs.json)."""
+        j.dry_sig, j.dry_ts = core.job_signature(j), (ts if ts is not None else time.time())
+        store = core.load_store()
+        store.jobs = [x for x in store.jobs if x.id != j.id] + [j]
+        core.save_store(store)
+
     def job(self, **kw):
         j = core.Job(name="t", dest_kind="local", mode="move", source=str(self.src), target=str(self.dst), backup_root=str(self.bk))
         for k, v in kw.items():
@@ -215,7 +222,7 @@ class TestMove(Base):
         self.assertEqual(self.tree(self.dst), {"a.txt": "OLD alpha"})
         with self.assertRaises(runs.RunRefused):             # a dry run only counts once the app records it
             self.mgr.start_job(j, True)
-        j.dry_sig, j.dry_ts = core.job_signature(j), time.time()
+        self.allow(j)
         rec = wait_done(self.mgr, self.mgr.start_job(j, True))
         self.assertEqual(rec.state, "done", rec.console)
         self.assertEqual(self.tree(self.dst), {"a.txt": "alpha", "sub/b.txt": "bravo"})
@@ -226,7 +233,7 @@ class TestMove(Base):
     def test_dry_run_signature_goes_stale_when_job_changes(self):
         self.write(self.src, "a.txt", "alpha")
         j = self.job()
-        j.dry_sig, j.dry_ts = core.job_signature(j), time.time()
+        self.allow(j)
         j.flags = {"--max-age": "1d"}
         with self.assertRaises(runs.RunRefused):
             self.mgr.start_job(j, True)
@@ -235,7 +242,7 @@ class TestMove(Base):
     def test_expired_dry_run_is_refused(self):
         self.write(self.src, "a.txt", "alpha")
         j = self.job()
-        j.dry_sig, j.dry_ts = core.job_signature(j), time.time() - 25 * 3600
+        self.allow(j, time.time() - 25 * 3600)
         with self.assertRaises(runs.RunRefused):
             self.mgr.start_job(j, True)
 

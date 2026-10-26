@@ -21,15 +21,17 @@ Destinations can be a cloud remote, an **encrypted (crypt) remote**, or another 
 `<backup folder>/<source name>/<YYYYMMDD-HHMMSS>/` on the same remote, so nothing is re-uploaded. Sync and Move
 refuse to run without a backup folder, refuse an empty source (a disconnected drive would otherwise look like
 "everything was deleted"), and refuse flags that skip verification. Copy never deletes, but a changed file
-overwrites the old one unless you set a backup folder.
+overwrites the old one unless you set a backup folder. Copy and Sync compare by size and time (so a same-size,
+same-time file with different content is not noticed, by design: no hashing up front); Move always verifies by checksum.
 
 Other features:
 
 - **Several jobs at once**, each in its own run; two jobs can't write to the same place at the same time. A remote that
-  is really a folder on this computer (local, alias, crypt over a local folder) is checked against your source and backup
-  folders too; other cross-job overlaps through such remotes are not detected.
+  is really a folder on this computer (local, alias, crypt, union, combine, `:local:`) is checked against your source and
+  backup folders too, and the window and the command line see each other's running jobs. If your rclone configuration
+  can't be read, the check refuses to run rather than guessing.
 - **Scheduler** (daily, weekly or every N minutes) while the app is open. Scheduled *real* runs need a one-time typed
-  `EXECUTE` and fall back to dry runs if you later edit the job. A background mode keeps it alive with the window closed
+  `EXECUTE` and fall back to dry runs if you later edit the job. Move jobs can only be scheduled as dry runs. A background mode keeps it alive with the window closed
   (tray icon with the optional `pystray` + `Pillow` packages; otherwise it just minimises). Running with the app fully
   closed (Task Scheduler / cron) is planned, not built.
 - **Mounts**: mount a remote or a folder of it (needs WinFsp on Windows, macFUSE/FUSE-T on macOS, fuse3 on Linux; the app
@@ -100,7 +102,7 @@ tests/                   unit tests and the real-window smoke test
 ## Licence and contact
 
 Copyright (C) 2026 blessedevil | Mehedi Maruf. GNU Affero General Public License v3 or later
-(`AGPL-3.0-or-later`). Bundled fonts (Inter, Geist Mono) are under the SIL OFL; see `rsg/ui/fonts`.
+(`AGPL-3.0-or-later`); the full text is in `LICENSE`. Bundled fonts (Inter, Geist Mono) are under the SIL OFL; see `rsg/ui/fonts`.
 
 - Developer: rsimplone@mehedimaruf.com
 - Licence questions: license@mehedimaruf.com

@@ -70,6 +70,9 @@ class Base(unittest.TestCase):
 
     def allow_move(self, j):
         j.dry_sig, j.dry_ts = core.job_signature(j), time.time()
+        store = core.load_store()                      # the unlock is read from jobs.json, not from memory
+        store.jobs = [x for x in store.jobs if x.id != j.id] + [j]
+        core.save_store(store)
 
     def files(self, base):
         return {str(p.relative_to(base)).replace("\\", "/"): sha(p) for p in Path(base).rglob("*") if p.is_file()}
@@ -264,6 +267,152 @@ class TestStop(Base):
         self.assertIn("stopped", rec.result.meaning)
         self.assertEqual([p.name for p in self.dst.iterdir() if p.name.endswith(".partial")], [])
         self.assertEqual(sha(self.src / "big.bin"), sha(self.src / "big.bin"))
+
+
+@unittest.skipUnless(RCLONE, "rclone not installed")
+class TestRound2(Base):
+    """Findings of the second independent audit."""
+
+    def test_move_verification_cannot_be_switched_off_by_any_route(self):
+        (self.src / "a.txt").write_text("a")
+        routes = ({"extra": "--checksum=false"}, {"extra": "--checksum=0"}, {"flags": {"--checksum": None}},
+                  {"flags": {"--checksum": ""}}, {"flags": {"--no-traverse": "--size-only"}}, {"extra": "--ignore-checksum"},
+                  {"extra": "--compare-dest x"}, {"extra": "--copy-dest x"}, {"extra": "-uc"})
+        for kw in routes:
+            self.assertTrue(core._move_unsafe(self.job(**kw)), kw)
+            self.assertTrue(core.validate_job(self.job(**kw), RCLONE), kw)
+        self.assertEqual(core._move_unsafe(self.job()), [])
+
+    def test_checksum_false_route_does_not_lose_the_source(self):
+        (self.src / "f.txt").write_text("12345")
+        (self.dst / "f.txt").write_text("abcde")
+        old = time.time() - 86400 * 30
+        os.utime(self.src / "f.txt", (old, old))
+        os.utime(self.dst / "f.txt", (old, old))
+        want = sha(self.src / "f.txt")
+        j = self.job(extra="--checksum=false")
+        self.allow_move(j)
+        with self.assertRaises(runs.RunRefused):
+            self.mgr.start_job(j, True)
+        self.assertEqual(sha(self.src / "f.txt"), want)
+
+    def test_unlock_is_consumed_on_disk_so_a_stale_copy_cannot_reuse_it(self):
+        (self.src / "a.txt").write_text("a")
+        j = self.job()
+        self.allow_move(j)
+        stale = self.job(id=j.id)
+        stale.dry_sig, stale.dry_ts = j.dry_sig, j.dry_ts           # what another process still holds in memory
+        self.assertIsNone(core.consume_move_unlock(j))
+        self.assertIsNotNone(core.consume_move_unlock(stale), "the disk says it is used up")
+        self.assertIsNotNone(core.move_gate(j))
+
+    def test_headless_dry_run_stamps_the_job_as_it_was_run(self):
+        (self.src / "a.txt").write_text("a")
+        store = core.Store()
+        j = self.job(name="mv")
+        store.jobs.append(j)
+        core.save_store(store)
+        self.assertEqual(core.cli_main(["--run", "mv"]), 0)
+        saved = core.load_store().jobs[0]
+        self.assertIsNone(core.move_gate(saved))
+        saved.extra = "--max-age 1d"                                  # edited after the dry run
+        self.assertIsNotNone(core.move_gate(saved))
+
+    def test_other_process_running_a_job_on_the_same_place_blocks_a_new_run(self):
+        import json as _json
+        import subprocess
+        sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        try:
+            a = self.job(id="aaa", name="A", mode="copy")
+            lock = core.config_dir() / "locks" / "aaa.lock"
+            lock.parent.mkdir(parents=True, exist_ok=True)
+            lock.write_text(_json.dumps({"pid": sleeper.pid, "name": "A", "foot": core.footprint(a)}))
+            b = self.job(id="bbb", name="B", mode="copy", source=str(self.root), target=str(self.dst))
+            with self.assertRaises(core.RunBusy):
+                core._acquire_lock(self.job(id="ccc", name="C", mode="copy", target=str(self.dst / "sub")))
+            other = self.root / "elsewhere"
+            other.mkdir()
+            ok = core._acquire_lock(self.job(id="ddd", name="D", mode="copy", source=str(self.root / "s2"), target=str(other), backup_root=str(self.root / "bk2")))
+            ok.unlink()
+        finally:
+            sleeper.kill()
+
+    def _conf(self, text):
+        cfg = self.root / "rclone.conf"
+        cfg.write_text(text, encoding="utf-8")
+        os.environ["RCLONE_CONFIG"] = str(cfg)
+
+    def test_union_combine_and_connection_string_remotes_over_the_source_are_refused(self):
+        (self.src / "a.txt").write_text("a")
+        inside = (self.src / "in").as_posix()
+        (self.src / "in").mkdir()
+        self._conf("[plain]\ntype = alias\nremote = %s\n[u]\ntype = union\nupstreams = plain:\n[c]\ntype = combine\nupstreams = d=plain:\n[cs]\ntype = alias\nremote = :local:%s\n" % (inside, inside))
+        try:
+            for name in ("plain", "u", "c", "cs"):
+                j = core.Job(name="r", dest_kind="remote", mode="copy", source=str(self.src), remote=name, target="x")
+                with self.assertRaises(runs.RunRefused, msg=name):
+                    self.mgr.start_job(j, False)
+        finally:
+            os.environ.pop("RCLONE_CONFIG", None)
+
+    def test_unreadable_rclone_config_fails_closed(self):
+        self._conf("RCLONE_ENCRYPT_V0:\nnot-a-real-encrypted-config\n")
+        try:
+            j = core.Job(name="r", dest_kind="remote", mode="copy", source=str(self.src), remote="anything", target="x")
+            self.assertIsNotNone(core.remote_inside_local(RCLONE, j))
+        finally:
+            os.environ.pop("RCLONE_CONFIG", None)
+
+    @unittest.skipUnless(os.name == "nt", "Windows path forms")
+    def test_extended_prefix_and_junction_overlap_are_detected(self):
+        import subprocess
+        self.assertTrue(core.local_overlap(str(self.src), "\\\\?\\" + str(self.src / "q")))
+        link = self.root / "link"
+        res = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(self.src)], capture_output=True)
+        if res.returncode == 0:
+            self.assertTrue(core.local_overlap(str(self.src), str(link / "in")), "a junction into the source is the source")
+
+    def test_source_may_not_be_a_whole_drive(self):
+        root = os.path.splitdrive(str(self.root))[0] + os.sep if core.IS_WIN else "/"
+        self.assertIn("whole drive", " ".join(core.validate_job(self.job(mode="copy", source=root, backup_root=""), RCLONE)))
+
+    def test_log_write_failure_does_not_stop_the_reader(self):
+        class Broken:
+            def write(self, _):
+                raise OSError("disk full")
+        run = core.SyncRun(RCLONE, self.job(), False, None)
+        run._log = Broken()
+        run._w("x")          # must not raise
+
+    def test_api_rejects_bogus_mode_nan_and_ungated_scripts(self):
+        a = apimod.Api()
+        a.store = core.load_store()
+        a.rclone = RCLONE
+        job = a.new_job("move")["data"]
+        self.assertFalse(a.save_job({"id": job["id"], "mode": "bogus"})["ok"])
+        self.assertEqual(a._job(job["id"]).mode, "move")
+        self.assertFalse(a.save_job({"id": job["id"], "bw_mbps": "nan"})["ok"])
+        self.assertFalse(a.save_job({"id": job["id"], "bw_mbps": "inf"})["ok"])
+        self.assertFalse(a.export_script(job["id"])["ok"])
+        c = a.new_job("copy")["data"]
+        r = a.export_script(c["id"])                  # invalid (no source): refused with a reason
+        self.assertFalse(r["ok"])
+        self.assertIn("Fix the job", r["error"])
+
+    def test_scheduled_real_move_is_not_allowed(self):
+        a = apimod.Api()
+        a.store = core.load_store()
+        a.rclone = RCLONE
+        job = a.new_job("move")["data"]
+        r = a.set_schedule(job["id"], {"enabled": True, "kind": "daily", "time": "02:00", "real": True}, "EXECUTE")
+        self.assertFalse(r["ok"])
+        from datetime import datetime
+        from rsg import schedule
+        j = a._job(job["id"])
+        j.schedule = {"enabled": True, "kind": "daily", "time": "02:00", "real": True, "real_sig": core.job_signature(j)}
+        fired = []
+        schedule.Scheduler(lambda: [j], lambda jb, real: fired.append(real), lambda i: False, lambda: None, core.job_signature).tick(datetime(2026, 1, 5, 2, 10))
+        self.assertEqual(fired, [False])
 
 
 if __name__ == "__main__":

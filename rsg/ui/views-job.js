@@ -392,14 +392,14 @@ function tabSchedule(job) {
   const time = h("input", { type: "time", value: s.time || "02:00" }); time.addEventListener("input", () => { s.time = time.value; });
   const days = h("div", { class: "days" }, ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) =>
     h("button", { class: "sm", "aria-pressed": String((s.days || []).includes(i)), onclick: (e) => { const set = new Set(s.days || []); set.has(i) ? set.delete(i) : set.add(i); s.days = [...set].sort(); e.currentTarget.setAttribute("aria-pressed", String(set.has(i))); } }, d)));
-  const real = h("input", { type: "checkbox", checked: !!s.real }); real.addEventListener("change", () => { s.real = real.checked; rebuild(); });
+  const real = h("input", { type: "checkbox", checked: !!s.real && job.mode !== "move", disabled: job.mode === "move" }); real.addEventListener("change", () => { s.real = real.checked; rebuild(); });
   const body = h("div", { class: "stack" });
   const rebuild = () => {
     body.replaceChildren(sw(s.enabled, (v) => { s.enabled = v; }, "Schedule is on", "Fires only while rSimpLone is open. Enable background mode in Settings to close the window."),
       h("div", { class: "row" }, kind), s.kind === "interval" ? field("Every (minutes, 5 or more)", every) : h("div", { class: "grid2" }, field("At", time), s.kind === "weekly" ? field("On", days) : null),
       h("label", { class: "chk" }, real, h("span", {}, "Run for real, not just a preview", h("small", {}, "You'll type " + S.confirmWord + " once. Edit the job later and it falls back to dry runs until you confirm again."))),
       job.next_run ? h("div", { class: "note" }, icon("clock"), " Next run: ", job.next_run) : null,
-      job.mode === "move" && s.real ? h("div", { class: "warnbox" }, "Scheduled real Moves remove source files without asking again. Check a dry run first.") : null,
+      job.mode === "move" ? h("div", { class: "note" }, "Move jobs can be scheduled as dry runs only. Run a real Move by hand, after a dry run.") : null,
       h("div", { class: "row" }, h("button", { class: "primary", onclick: save }, "Save schedule")));
   };
   const save = async () => {

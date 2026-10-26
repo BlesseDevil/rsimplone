@@ -148,7 +148,7 @@ class Scheduler:
                 continue
             if not is_due(s, now) or self.busy(job.id):
                 continue
-            real = bool(s["real"] and s["real_sig"] and s["real_sig"] == self.signature(job))
+            real = bool(s["real"] and s["real_sig"] and s["real_sig"] == self.signature(job) and getattr(job, "mode", "") != "move")
             raw["last_fired"] = now.timestamp()
             changed = True
             try:

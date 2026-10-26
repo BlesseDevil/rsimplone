@@ -96,9 +96,10 @@ class TestApi(unittest.TestCase):
         saved = self.api.save_job(job)["data"]
         self.assertEqual(saved["flags"], {"--max-age": "30d"})
         job["extra"] = "--backup-dir x"
-        saved = self.api.save_job(job)["data"]
-        self.assertTrue(any("managed" in p for p in saved["problems"]))
-        self.assertFalse(self.api.start(job["id"], False)["ok"])
+        r = self.api.save_job(job)
+        self.assertFalse(r["ok"], "a job that uses an app-owned flag must not be saved")
+        self.assertIn("managed", r["error"])
+        self.assertEqual(self.api._job(job["id"]).extra, "")
 
     def test_dry_run_unlocks_move_only_for_the_same_job(self):
         job = self.make("move")
