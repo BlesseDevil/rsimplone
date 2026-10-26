@@ -1,0 +1,21 @@
+# local-only notes and tooling
+CLAUDE.md
+.claude/
+.blessedevil/
+
+# python
+__pycache__/
+*.pyc
+
+# logs and anything generated from a real setup can list file names and remote names
+*.log
+*.analysis.txt
+WinPSObsolete/rsg-scripts/
+
+# grphifyy
+graphify-out/
+
+# VS Code
+.vs/
+# obsolete first version, kept on disk only
+WinPSObsolete/

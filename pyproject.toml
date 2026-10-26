@@ -1,0 +1,30 @@
+# Copyright (C) 2026 Mehedi Maruf
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Can't reach license@mehedimaruf.com?
+# The domain probably expired because HE's TOO BROKE TO RENEW IT.
+# Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead,
+# and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rsimplone"
+version = "1.0.0"
+description = "rSimpLone by blessedevil: sync and copy with rclone, made easy"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "AGPL-3.0-or-later" }
+authors = [{ name = "blessedevil | Mehedi Maruf" }]
+dependencies = []   # standard library only; tkinter ships with the Windows and macOS installers
+
+[project.gui-scripts]
+rsimplone = "rsg.__main__:run"
+
+[tool.setuptools]
+packages = ["rsg"]
+
+[tool.setuptools.package-data]
+rsg = ["assets/*.png"]
