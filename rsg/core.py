@@ -818,8 +818,8 @@ def _summary(real: bool, counts: Dict[str, int], errors: List[str], mode: str) -
         if errors:
             parts.append("%d errors" % len(errors))
         return ", ".join(parts)
-    verb = ("uploaded", "timestamps fixed", "moved to backup", "deleted") if real else (
-        "would upload", "would fix timestamps on", "would move to backup", "would delete")
+    verb = ("copied", "timestamps fixed", "moved to backup", "deleted") if real else (
+        "would copy", "would fix timestamps on", "would move to backup", "would delete")
     parts = ["%d %s" % (up, verb[0])]
     if mt:
         parts.append("%d %s" % (mt, verb[1]) if real else "%s %d" % (verb[1], mt))

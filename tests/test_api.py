@@ -184,6 +184,46 @@ class TestApi(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.api._export_data(["nope"])
 
+    def test_export_and_import_through_a_file(self):
+        a = self.make("copy")
+        target = self.root / "jobs-backup"
+        self.api._dialog = lambda kind, **kw: str(target)
+        r = self.api.export_jobs([a["id"]])
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["data"]["path"], str(target) + ".json", "the .json suffix is added")
+        self.assertTrue(r["data"]["path"].endswith(".json") and Path(r["data"]["path"]).exists())
+        self.api._dialog = lambda kind, **kw: r["data"]["path"]
+        got = self.api.import_jobs()
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(len(got["data"]["jobs"]), 1)
+        self.api._dialog = lambda kind, **kw: ""
+        self.assertTrue(self.api.import_jobs()["data"]["cancelled"], "closing the dialog changes nothing")
+        bad = self.root / "bad.json"
+        bad.write_text("{not json", encoding="utf-8")
+        self.api._dialog = lambda kind, **kw: str(bad)
+        self.assertIn("not valid JSON", self.api.import_jobs()["error"])
+        bad.write_bytes(b"\xff\xfe\x00bad")
+        self.assertFalse(self.api.import_jobs()["ok"])
+        bad.write_text(" " * (apimod.IMPORT_MAX_BYTES + 1), encoding="utf-8")
+        self.assertIn("too big", self.api.import_jobs()["error"])
+
+    def test_one_malformed_job_never_aborts_an_import(self):
+        before = len(self.api.jobs()["data"])
+        res = self.api._import_data({"app": "rSimpLone", "format": 1, "jobs": [
+            {"name": "a", "mode": "copy", "flags": []}, {"name": "b", "mode": "copy", "flags": "x"},
+            {"name": "c", "mode": "copy", "bw_mbps": "fast"}, {"name": "good", "mode": "copy"}]})
+        self.assertIn("good", [j["name"] for j in res["jobs"]])
+        self.assertEqual(len(self.api.jobs()["data"]), before + len(res["jobs"]))
+        self.assertEqual(len(res["jobs"]) + len(res["skipped"]), 4)
+
+    def test_live_counts_match_the_final_counts_rules(self):
+        from rsg import runs as runsmod
+        mgr = self.api.mgr
+        rec = runsmod.Record("x", "job", "n")
+        for kind, path in (("delete", "a.txt"), ("delete", "a.txt"), ("replace", "b.txt"), ("backup", "b.txt"), ("upload", "c.txt"), ("error", "d.txt"), ("error", "d.txt")):
+            mgr._apply(rec, "activity", {"kind": kind, "path": path, "detail": ""})
+        self.assertEqual(rec.counts, {"delete": 1, "backup": 1, "upload": 1, "error": 2})
+
     def test_console_lines_reaches_the_page_under_a_name_pywebview_can_call(self):
         job = self.make()
         rid = self.api.start(job["id"], False)["data"]

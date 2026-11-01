@@ -75,6 +75,7 @@ class Record:
         self.ended = 0.0
         self.stats: Dict[str, Any] = {}
         self.counts: Dict[str, int] = {}
+        self.seen: Dict[str, set] = {}
         self.result: Optional[core.RunResult] = None
         self.console: Deque[str] = collections.deque(maxlen=CONSOLE_LINES)
         self.console_total = 0
@@ -263,7 +264,17 @@ class RunManager:
             rec.errors = int(payload.get("errors", 0) or 0)
             self._emit(rec.id, "state", rec.view())
         elif kind == "activity":
-            rec.counts[payload["kind"]] = rec.counts.get(payload["kind"], 0) + 1
+            # same rules as the final counts in SyncRun: a replaced or deleted file logs more than one line, count it once
+            k = payload["kind"]
+            bucket = "backup" if k in ("backup", "replace") else k
+            if k == "error":
+                rec.counts["error"] = rec.counts.get("error", 0) + 1
+            else:
+                seen = rec.seen.setdefault(bucket, set())
+                key = payload.get("path") or payload.get("detail") or ""
+                if key not in seen:
+                    seen.add(key)
+                    rec.counts[bucket] = rec.counts.get(bucket, 0) + 1
             self._emit(rec.id, "activity", payload)
         elif kind == "done":
             res: core.RunResult = payload["result"]

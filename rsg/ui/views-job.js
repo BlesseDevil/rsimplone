@@ -519,6 +519,8 @@ function tabRun(job) {
   return stack;
 }
 const feedFilter = { kind: "all" };
+const KIND_TEXT = { upload: ["copied", "would copy"], replace: ["replaced", "would replace"], backup: ["to backup", "would back up"], delete: ["deleted", "would delete"], modtime: ["date fixed", "date would be fixed"], error: ["error", "error"] };
+const kindText = (k, real) => (KIND_TEXT[k] || [k, k])[real ? 0 : 1];
 const setText = (id, v) => { const el = $("#" + id); v = String(v); if (el && el.textContent !== v) el.textContent = v; };
 function updateRunTab(force) {
   const root = $("#runtab"); if (!root) return;
@@ -557,12 +559,12 @@ function updateRunTab(force) {
   const kinds = ["all", ...new Set(acts.map((a) => a.kind))];
   const fkey = kinds.join(",") + feedFilter.kind;
   const fbox = $("#run-filter");
-  if (force || fbox.dataset.k !== fkey) { fbox.dataset.k = fkey; fbox.replaceChildren(...kinds.map((k) => h("button", { "aria-pressed": String(feedFilter.kind === k), onclick: () => { feedFilter.kind = k; updateRunTab(true); } }, k))); }
+  if (force || fbox.dataset.k !== fkey) { fbox.dataset.k = fkey; fbox.replaceChildren(...kinds.map((k) => h("button", { "aria-pressed": String(feedFilter.kind === k), onclick: () => { feedFilter.kind = k; updateRunTab(true); } }, k === "all" ? "All" : kindText(k, run.real)))); }
   const shown = acts.filter((a) => feedFilter.kind === "all" || a.kind === feedFilter.kind);
   const feed = $("#run-feed");
   if (force || feed.dataset.n !== String(shown.length) + feedFilter.kind) {
     feed.dataset.n = String(shown.length) + feedFilter.kind;
-    feed.replaceChildren(...shown.slice(-300).reverse().map((a) => h("div", { class: "it" }, h("span", { class: "k " + a.kind }, a.kind), h("span", { class: "p" }, a.path || a.detail, a.path ? h("span", { class: "muted" }, "  " + a.detail) : null))));
+    feed.replaceChildren(...shown.slice(-300).reverse().map((a) => h("div", { class: "it" }, h("span", { class: "k " + a.kind }, kindText(a.kind, run.real)), h("span", { class: "p" }, a.path || a.detail, a.path ? h("span", { class: "muted" }, "  " + a.detail) : null))));
     if (!shown.length) feed.append(h("div", { class: "empty" }, live ? "Waiting for rclone…" : run.real ? "No file activity was reported." : "Nothing would change."));
   }
   setText("run-feedcount", `${shown.length} item${shown.length === 1 ? "" : "s"}`);

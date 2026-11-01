@@ -451,8 +451,8 @@ class Api:
                     job.flags = flagmod.clean_overrides(job.flags, self.catalogue)
                     job.checkers, job.transfers = max(0, job.checkers), max(0, job.transfers)
                     core.build_args(job, False, "STAMP")
-                except (ValueError, TypeError) as exc:
-                    skipped.append("%s: %s" % (label, exc))
+                except Exception as exc:  # noqa: BLE001  (one malformed entry must be skipped, never abort the whole import)
+                    skipped.append("%s: %s" % (label, exc if isinstance(exc, ValueError) else "not a valid job"))
                     continue
                 self.store.jobs.append(job)
                 added.append(job)
