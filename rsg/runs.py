@@ -94,6 +94,11 @@ class Record:
             "started": self.started, "ended": self.ended, "bytes": done, "total": total,
             "speed": st.get("speed", 0) or 0, "eta": st.get("eta"), "transfers": st.get("transfers", 0),
             "checks": st.get("checks", 0), "errors": self.errors, "counts": dict(self.counts),
+            "total_transfers": st.get("totalTransfers", 0) or 0, "total_checks": st.get("totalChecks", 0) or 0,
+            "elapsed": st.get("elapsedTime", 0) or 0,
+            "transferring": [{"name": str(t.get("name", "")), "size": t.get("size", 0) or 0, "bytes": t.get("bytes", 0) or 0,
+                              "speed": t.get("speed", 0) or 0, "eta": t.get("eta")}
+                             for t in (st.get("transferring") or [])[:12] if isinstance(t, dict)],
             "backup_dir": self.backup_dir, "log_path": self.log_path,
             "summary": r.summary if r else "", "code": r.code if r else None, "meaning": r.meaning if r else "",
             "mountpoint": self.spec.mountpoint if self.spec else "",

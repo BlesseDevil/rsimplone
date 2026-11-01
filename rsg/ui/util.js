@@ -55,6 +55,8 @@ const ICONS = {
   list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   code: '<path d="M8 4 3 12l5 8M16 4l5 8-5 8"/>',
+  export: '<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>',
+  import: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
 };
 function icon(name, cls) {
   const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");

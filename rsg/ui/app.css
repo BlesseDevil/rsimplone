@@ -90,6 +90,7 @@ button.ghost { border-color: transparent; background: none; } button.sm { paddin
 input, select, textarea { font: inherit; font-weight: 400; color: var(--text); background: var(--bg); border: 1px solid var(--control-edge); border-radius: var(--r-sm); padding: .42rem .6rem; min-width: 0; width: 100%; transition: border-color .15s, box-shadow .15s; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 input[type=checkbox], input[type=radio] { width: auto; accent-color: var(--accent); }
+label.f > .seg { justify-self: start; }
 label.f { display: grid; gap: .25rem; font-size: .74rem; font-weight: 650; color: var(--muted); letter-spacing: .02em; min-width: 0; }
 label.chk { display: flex; align-items: flex-start; gap: .55rem; font-size: .86rem; cursor: pointer; }
 label.chk small { display: block; color: var(--muted); font-size: .76rem; }
@@ -129,6 +130,7 @@ label.chk small { display: block; color: var(--muted); font-size: .76rem; }
 .newmenu { position: relative; }
 .newmenu .pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 190px; padding: .3rem; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r); box-shadow: var(--shadow); display: grid; gap: .1rem; }
 .newmenu .pop button { justify-content: flex-start; border: 0; background: none; font-weight: 550; }
+.newmenu .pop hr { width: 100%; border: 0; border-top: 1px solid var(--border); margin: .2rem 0; }
 .joblist { overflow: auto; padding: .15rem .55rem .6rem; display: grid; gap: .3rem; align-content: start; min-height: 0; }
 .slot { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .6rem; width: 100%; padding: .5rem .6rem; text-align: left; border: 1px solid transparent; border-radius: var(--r); background: none; font-weight: 500; }
 .slot:hover:not(:disabled) { background: var(--accent-soft); border-color: transparent; }
@@ -154,6 +156,7 @@ label.chk small { display: block; color: var(--muted); font-size: .76rem; }
 #page { display: grid; grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; min-width: 0; }
 .jobhead { display: flex; align-items: center; gap: .75rem; padding: .8rem 1.3rem .35rem; flex-wrap: wrap; }
 .jobhead .name { flex: 1 1 14rem; min-width: 10rem; font: 700 1.35rem var(--font-body); letter-spacing: -.02em; background: none; border: 1px solid transparent; padding: .15rem .45rem; margin-left: -.45rem; border-radius: var(--r-sm); text-overflow: ellipsis; }
+.jobhead .tools { gap: .1rem; }
 .jobhead .name:hover { border-color: var(--border-strong); } .jobhead .name:focus { background: var(--bg); }
 .tabs { display: flex; gap: .15rem; padding: 0 1.3rem; border-bottom: 1px solid var(--border); }
 .tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); padding: .55rem .9rem; font-weight: 600; }
@@ -174,8 +177,8 @@ label.chk small { display: block; color: var(--muted); font-size: .76rem; }
 
 /* run tab */
 .bigbar { height: 10px; border-radius: 6px; background: var(--border); overflow: hidden; } .bigbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--gold), var(--accent)); transition: width .5s var(--ease); }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .6rem; }
-.stat { padding: .55rem .75rem; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); } .stat b { display: block; font-size: 1.25rem; line-height: 1.15; font-variant-numeric: tabular-nums; } .stat span { font: 600 .62rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; } .stats.dry { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.stat { padding: .55rem .75rem; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); } .stat b { display: block; font-size: 1.1rem; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; } .stat span { font: 600 .62rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .banner { padding: .75rem 1rem; border-radius: var(--r); border: 1px solid var(--border-strong); background: var(--surface); display: grid; gap: .15rem; }
 .banner.ok { border-color: var(--ok); } .banner.bad { border-color: var(--bad); } .banner b { font-size: 1.02rem; }
 .feed { max-height: 340px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); }
@@ -192,7 +195,7 @@ label.chk small { display: block; color: var(--muted); font-size: .76rem; }
 .chips button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 
 /* bottom pane */
-#bottom { display: grid; grid-template-rows: 34px minmax(0, 1fr); background: var(--bg-alt); border-top: 1px solid var(--border-strong); height: var(--bottom-h, 36px); position: relative; min-height: 34px; max-height: 70vh; }
+#bottom { display: grid; grid-template-rows: 34px minmax(0, 1fr); background: var(--bg-alt); border-top: 1px solid var(--border-strong); height: min(var(--bottom-h, 36px), 50vh); position: relative; min-height: 34px; max-height: 70vh; }
 #bottom.collapsed { height: 34px !important; }
 #bottom .grip { position: absolute; left: 0; right: 0; top: -4px; height: 8px; cursor: ns-resize; z-index: 5; }
 .bhead { display: flex; align-items: center; gap: .2rem; padding: 0 .6rem; border-bottom: 1px solid var(--border); }
@@ -241,3 +244,11 @@ dialog.picker { max-width: min(560px, 92vw); } .pick-list { max-height: 320px; o
 .mcard { display: grid; gap: .7rem; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 @media (max-width: 980px) { #app { --rail-w: 220px; } }
+
+/* export dialog rows, live 'copying now' list */
+.pickrow { padding: .45rem .7rem; border-bottom: 1px solid var(--border); align-items: center; }
+.pickrow:last-child { border-bottom: 0; } .pickrow b { display: block; font-weight: 600; } .pickrow small { overflow-wrap: anywhere; }
+.nowlist { display: grid; gap: .45rem; }
+.nowrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(80px, 160px) auto; gap: .7rem; align-items: center; font-size: .8rem; }
+.nowrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .nowrow .mono { font-size: .72rem; white-space: nowrap; }
+.nowrow .bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; } .nowrow .bar i { display: block; height: 100%; background: var(--gold); transition: width .4s; }

@@ -37,6 +37,8 @@ from . import __version__, core, flags as flagmod, mounts, runs, schedule
 
 CONFIRM_WORD = "EXECUTE"
 LISTING_TTL = 15 * 60
+EXPORT_SKIP = ("id", "schedule", "dry_sig", "dry_ts", "last_run", "last_mode", "last_code", "last_summary")
+IMPORT_MAX_BYTES, IMPORT_MAX_JOBS = 5_000_000, 500
 THEMES = ("system", "light", "dark")
 BOOT = [
     ("settings", "Reading your jobs…"),
@@ -420,6 +422,84 @@ class Api:
             self._save()
         return self._job_view(copy)
 
+    # ---- export / import of job definitions ---------------------------------------------------------------
+    def _export_data(self, ids: List[str]) -> Dict[str, Any]:
+        """The portable form of the chosen jobs. Schedules, run history and the Move unlock are left out on purpose:
+        an imported job always starts unscheduled and needs a fresh dry run."""
+        want = set(ids)
+        chosen = [j for j in self.store.jobs if j.id in want]
+        if not chosen:
+            raise ValueError("Choose at least one job to export.")
+        return {"app": "rSimpLone", "format": 1, "version": __version__,
+                "jobs": [{k: v for k, v in asdict(j).items() if k not in EXPORT_SKIP} for j in chosen]}
+
+    def _import_data(self, data: Any) -> Dict[str, Any]:
+        if not isinstance(data, dict) or data.get("app") != "rSimpLone" or not isinstance(data.get("jobs"), list):
+            raise ValueError("This is not a rSimpLone jobs file.")
+        if data.get("format") != 1:
+            raise ValueError("This file was made by a newer version of rSimpLone.")
+        added: List[core.Job] = []
+        skipped: List[str] = []
+        with self.lock:
+            for raw in data["jobs"][: IMPORT_MAX_JOBS]:
+                label = str(raw.get("name", "?"))[:60] if isinstance(raw, dict) else "?"
+                try:
+                    if not isinstance(raw, dict):
+                        raise ValueError("not a job")
+                    job = _job_from(raw, core.Job())
+                    job.name = self._unique_name((job.name or "").strip() or "Imported job")
+                    job.flags = flagmod.clean_overrides(job.flags, self.catalogue)
+                    job.checkers, job.transfers = max(0, job.checkers), max(0, job.transfers)
+                    core.build_args(job, False, "STAMP")
+                except (ValueError, TypeError) as exc:
+                    skipped.append("%s: %s" % (label, exc))
+                    continue
+                self.store.jobs.append(job)
+                added.append(job)
+            if added:
+                self._save()
+        return {"jobs": [self._job_view(j) for j in added], "skipped": skipped}
+
+    def _dialog(self, kind: str, **kw: Any) -> str:
+        import webview
+        win = self._main or (webview.windows[0] if webview.windows else None)
+        if win is None:
+            return ""
+        enum = getattr(webview, "FileDialog", None)
+        mode = getattr(enum, kind, None) if enum else None
+        if mode is None:
+            mode = {"SAVE": webview.SAVE_DIALOG, "OPEN": webview.OPEN_DIALOG}[kind]
+        res = win.create_file_dialog(mode, **kw)
+        if isinstance(res, (list, tuple)):
+            res = res[0] if res else ""
+        return str(res or "")
+
+    @_api
+    def export_jobs(self, ids: List[str]) -> Dict[str, Any]:
+        payload = self._export_data(list(ids))
+        path = self._dialog("SAVE", save_filename="rsimplone-jobs.json", file_types=("JSON file (*.json)",))
+        if not path:
+            return {"path": "", "count": 0}
+        if not path.lower().endswith(".json"):
+            path += ".json"
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2)
+        return {"path": path, "count": len(payload["jobs"])}
+
+    @_api
+    def import_jobs(self) -> Dict[str, Any]:
+        path = self._dialog("OPEN", file_types=("JSON file (*.json)",))
+        if not path:
+            return {"jobs": [], "skipped": [], "cancelled": True}
+        if core.os.path.getsize(path) > IMPORT_MAX_BYTES:
+            raise ValueError("That file is too big to be a jobs file.")
+        with open(path, "r", encoding="utf-8") as fh:
+            try:
+                data = json.load(fh)
+            except ValueError:
+                raise ValueError("That file is not valid JSON.")
+        return self._import_data(data)
+
     @_api
     def preview(self, job_id: str) -> Dict[str, str]:
         job = self._job(job_id)
@@ -546,7 +626,7 @@ class Api:
         return {"events": self.mgr.drain(), "runs": self.mgr.snapshot(), "notes": notes}
 
     @_api
-    def console(self, run_id: str, since: int = 0) -> Dict[str, Any]:
+    def console_lines(self, run_id: str, since: int = 0) -> Dict[str, Any]:
         return self.mgr.console(run_id, int(since))
 
     @_api

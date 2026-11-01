@@ -149,6 +149,57 @@ class TestApi(unittest.TestCase):
         self.assertTrue(self.api.delete_job(copy["id"])["ok"])
         self.assertEqual(len(self.api.jobs()["data"]), 1)
 
+    def test_export_import_roundtrip_selected_jobs(self):
+        a, b = self.make("copy"), self.make("move")
+        self.api.set_schedule(a["id"], {"enabled": True, "kind": "daily", "time": "03:00"}, "")
+        data = self.api._export_data([a["id"]])
+        self.assertEqual([j["name"] for j in data["jobs"]], [a["name"]], "only the selected job is exported")
+        for key in ("id", "schedule", "dry_sig", "dry_ts", "last_run"):
+            self.assertNotIn(key, data["jobs"][0])
+        res = self.api._import_data(data)
+        self.assertEqual(len(res["jobs"]), 1)
+        got = res["jobs"][0]
+        self.assertNotEqual(got["id"], a["id"])
+        self.assertNotEqual(got["name"], a["name"], "names stay unique")
+        self.assertEqual(got["source"], a["source"])
+        self.assertFalse(got["schedule"]["enabled"], "an imported job never starts scheduled")
+        self.assertEqual(len(self.api.jobs()["data"]), 3)
+        self.assertEqual(len(self.api._export_data([a["id"], b["id"]])["jobs"]), 2)
+
+    def test_import_move_job_is_not_unlocked_and_bad_input_is_refused(self):
+        m = self.make("move")
+        self.finish(self.api.start(m["id"], False)["data"])
+        self.assertTrue(self.api._job_view(self.api._job(m["id"]))["move_ready"])
+        data = self.api._export_data([m["id"]])
+        data["jobs"][0].update(dry_sig="x", dry_ts=time.time())             # a hand-edited file must not smuggle in an unlock
+        got = self.api._import_data(data)["jobs"][0]
+        self.assertFalse(got["move_ready"])
+        self.assertFalse(self.api.start(got["id"], True, "EXECUTE")["ok"])
+        for bad in ({}, [], {"app": "other", "jobs": []}, {"app": "rSimpLone", "format": 99, "jobs": []}):
+            with self.assertRaises(ValueError):
+                self.api._import_data(bad)
+        res = self.api._import_data({"app": "rSimpLone", "format": 1, "jobs": [5, {"name": "x", "mode": "bogus"}, {"name": "ok", "mode": "copy"}]})
+        self.assertEqual([j["name"] for j in res["jobs"]], ["ok"])
+        self.assertEqual(len(res["skipped"]), 2)
+        with self.assertRaises(ValueError):
+            self.api._export_data(["nope"])
+
+    def test_console_lines_reaches_the_page_under_a_name_pywebview_can_call(self):
+        job = self.make()
+        rid = self.api.start(job["id"], False)["data"]
+        self.finish(rid)
+        r = self.api.console_lines(rid, 0)
+        self.assertTrue(r["ok"])
+        self.assertGreater(len(r["data"]["lines"]), 0)
+        self.assertFalse(hasattr(self.api, "console"), "'console' hangs forever as a pywebview API name")
+
+    def test_run_view_carries_totals_for_the_live_screen(self):
+        job = self.make()
+        rid = self.api.start(job["id"], True, "EXECUTE")["data"]
+        view = self.finish(rid).view()
+        for key in ("total_transfers", "total_checks", "elapsed", "transferring"):
+            self.assertIn(key, view)
+
     def test_path_info_free_space_and_missing_folder(self):
         info = self.api.path_info(str(self.dst))["data"]
         self.assertTrue(info["exists"])

@@ -59,8 +59,8 @@ def main(result_path: str) -> int:
             out["checks"]["slots"] = window.evaluate_js("document.querySelectorAll('.slot').length")
             out["checks"]["title_input"] = window.evaluate_js("document.querySelector('.jobhead .name').value")
             out["checks"]["theme_logo"] = window.evaluate_js("document.querySelector('#logo-main').getAttribute('src')")
-            out["checks"]["has_dry_btn"] = window.evaluate_js("[...document.querySelectorAll('#hdr-actions button')].some(b=>b.textContent.includes('Dry run'))")
-            window.evaluate_js("[...document.querySelectorAll('#hdr-actions button')].find(b=>b.textContent.includes('Dry run')).click()")
+            out["checks"]["has_dry_btn"] = window.evaluate_js("[...document.querySelectorAll('#hdr-actions button')].some(b=>b.textContent.includes('Preview'))")
+            window.evaluate_js("[...document.querySelectorAll('#hdr-actions button')].find(b=>b.textContent.includes('Preview')).click()")
             deadline = time.time() + 30
             while time.time() < deadline:
                 state = window.evaluate_js("(S.runs[0]||{}).state")

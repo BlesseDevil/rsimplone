@@ -16,7 +16,7 @@ function renderRail() {
   const list = $("#joblist"); if (!list) return;
   const top = list.scrollTop;
   list.replaceChildren();
-  if (!S.jobs.length) list.append(h("div", { class: "empty" }, "No jobs yet.", h("br"), "Use + New."));
+  if (!S.jobs.length) list.append(h("div", { class: "empty" }, "No jobs yet.", h("br"), "Press New to create one, or import jobs from a file."));
   for (const j of S.jobs) {
     const r = lastRun(j.id); const live = isLive(r);
     const state = live ? "live" : j.last_code == null ? "" : (j.last_code === 0 || j.last_code === 9) ? "ok" : "bad";
@@ -25,7 +25,7 @@ function renderRail() {
     const badges = h("span", { class: "badges" }, icon(j.dest_kind === "local" ? "folder" : "cloud"), j.crypt ? icon("lock", "lock") : null,
       j.schedule && j.schedule.enabled ? icon("clock") : null, (j.problems || []).length ? icon("alert", "warn") : null);
     const slot = h("button", { class: "slot", "aria-current": String(S.view === "job" && j.id === S.sel), onclick: () => { S.sel = j.id; S.view = "job"; if (S.tab === "run" && !lastRun(j.id)) S.tab = "setup"; lsSet("rsg-sel", j.id); renderAll(); } },
-      ico, h("span", { style: "min-width:0" }, h("div", { class: "nm" }, j.name), h("div", { class: "sub" }, live ? (r.real ? "Running…" : "Dry run…") + (pct ? " " + pct + "%" : "") : destShort(j) || "needs setup")), badges,
+      ico, h("span", { style: "min-width:0" }, h("div", { class: "nm" }, j.name), h("div", { class: "sub" }, live ? (r.real ? "Running" : "Previewing") + (r.real && pct ? " " + pct + "%" : "…") : destShort(j) || "Not set up yet")), badges,
       live ? h("div", { class: "mini" }, h("i", { style: `width:${pct}%` })) : null);
     tooltip(slot, () => slotTip(j));
     list.append(slot);
@@ -34,12 +34,12 @@ function renderRail() {
 }
 function slotTip(j) {
   const r = lastRun(j.id);
-  const rows = [["Mode", MODE_LABEL[j.mode]], ["From", j.source || "—"], ["To", j.dest_text || "—"], ["Backup", j.backup_root || (j.mode === "sync" ? "required" : "none")],
-    ["Last run", j.last_run ? `${j.last_run} · ${j.last_mode}${j.last_summary ? " — " + j.last_summary : ""}` : "never"],
+  const rows = [["Mode", MODE_LABEL[j.mode]], ["From", j.source || "—"], ["To", j.dest_text || "—"], ["Backup folder", j.backup_root || (j.mode === "sync" ? "required" : "none")],
+    ["Last run", j.last_run ? `${j.last_run} · ${j.last_mode}${j.last_summary ? ": " + j.last_summary : ""}` : "never"],
     ["Schedule", j.schedule_text + (j.next_run ? " · next " + j.next_run : "")]];
-  if (isLive(r)) rows.unshift(["Now", `${r.real ? "real run" : "dry run"} · ${bytes(r.bytes)} of ${bytes(r.total)} · ${bytes(r.speed)}/s`]);
+  if (isLive(r)) rows.unshift(["Now", r.real ? `real run · ${bytes(r.bytes)} of ${bytes(r.total)} · ${bytes(r.speed)}/s` : `preview · ${r.checks} files checked`]);
   const dl = h("dl", {}); for (const [k, v] of rows) dl.append(h("dt", {}, k), h("dd", {}, v));
-  return h("div", {}, h("b", {}, j.name + (j.crypt ? "  🔒 encrypted" : "")), dl, (j.problems || []).length ? h("div", { style: "color:var(--bad);margin-top:.4rem" }, j.problems[0]) : null);
+  return h("div", {}, h("b", {}, j.name + (j.crypt ? " (encrypted)" : "")), dl, (j.problems || []).length ? h("div", { style: "color:var(--bad);margin-top:.4rem" }, j.problems[0]) : null);
 }
 function renderNav() {
   const nav = $("#railnav"); nav.replaceChildren();
@@ -49,7 +49,9 @@ function renderNav() {
     icon(ic), label, count ? h("span", { class: "chip count" }, count) : null);
   nav.append(item("mounts", "drive", "Mounts", live), item("schedules", "clock", "Schedules", sch), item("settings", "gear", "Settings"));
   const nm = $("#newmenu"); nm.replaceChildren();
-  const pop = h("div", { class: "pop", hidden: true }, ["copy", "sync", "move"].map((m) => h("button", { onclick: () => { pop.hidden = true; newJob(m); } }, icon(m), `${MODE_LABEL[m]} job`)));
+  const pop = h("div", { class: "pop", hidden: true }, ["copy", "sync", "move"].map((m) => h("button", { onclick: () => { pop.hidden = true; newJob(m); } }, icon(m), `New ${MODE_LABEL[m].toLowerCase()} job`)),
+    h("hr"), h("button", { onclick: () => { pop.hidden = true; importJobs(); } }, icon("import"), "Import jobs…"),
+    h("button", { onclick: () => { pop.hidden = true; exportDialog(); } }, icon("export"), "Export jobs…"));
   nm.append(h("button", { class: "sm primary", onclick: (e) => { e.stopPropagation(); pop.hidden = !pop.hidden; } }, icon("plus"), "New"), pop);
 }
 document.addEventListener("click", () => { const p = $("#newmenu .pop"); if (p) p.hidden = true; });
@@ -57,7 +59,7 @@ document.addEventListener("click", () => { const p = $("#newmenu .pop"); if (p) 
 function renderStatus() {
   const live = S.runs.filter((r) => ["running", "stopping", "mounting", "mounted"].includes(r.state)).length;
   const st = $("#status");
-  st.replaceChildren(h("span", {}, `${S.jobs.length} job${S.jobs.length === 1 ? "" : "s"}`), h("span", {}, live ? `${live} running` : "idle"), h("span", {}, S.rcloneVersion || "rclone not found"), h("span", { class: "sp" }),
+  st.replaceChildren(h("span", {}, `${S.jobs.length} job${S.jobs.length === 1 ? "" : "s"}`), h("span", {}, live ? `${live} running` : "Nothing running"), h("span", {}, S.rcloneVersion || "rclone not found"), h("span", { class: "sp" }),
     h("a", { href: "#", title: HINT, onclick: (e) => { e.preventDefault(); must("open_url", SITE); } }, COPYRIGHT));
 }
 function renderAll() {
@@ -67,7 +69,7 @@ function renderAll() {
 }
 
 // ═══ polling ═════════════════════════════════════════════════════════════════════════
-let polling = false, lastSig = "";
+let polling = false, lastSig = "", lastTick = 0;
 async function pollNow() {
   if (polling) return; polling = true;
   try {
@@ -84,12 +86,15 @@ async function pollNow() {
     for (const n of notes) toast(n.text, n.level === "bad" ? "bad" : n.level === "ok" ? "ok" : "");
     if (finished) { const jr = await call("jobs"); if (jr.ok) mergeJobs(jr.data); if (S.view === "mounts") { await loadMounts(); pageMounts(); } }
     const sig = runs.map((x) => `${x.id}:${x.state}:${x.bytes}:${x.errors}:${x.checks}:${x.transfers}`).join("|");
+    const anyLive = runs.some(isLive), tick = anyLive ? Math.floor(Date.now() / 1000) : 0;
+    if (S.view === "job" && S.tab === "run" && (tick !== lastTick || sig !== lastSig || finished)) updateRunTab();      // the clock keeps moving even when rclone is quiet
+    lastTick = tick;
     if (sig !== lastSig || finished) {
       lastSig = sig; renderRail(); renderStatus(); renderNav();
-      if (S.view === "job" && S.tab === "run") updateRunTab(); else if (S.view === "job") { const a = $("#hdr-actions"); const j = curJob(); if (a && j) fillActions(a, j); }
+      if (S.view === "job" && S.tab !== "run") { const a = $("#hdr-actions"); const j = curJob(); if (a && j) fillActions(a, j); }
       if (S.bottomOpen && S.bottomTab === "runs") { const l = $("#runs-list"); if (l) l.replaceWith(runsList()); else renderBottom(); }
       if (S.bottomOpen && S.bottomTab === "console") { const f = $("#cfoot"); const run = S.runs.find((x) => x.id === S.bottomSel); if (f && run) f.textContent = statsLine(run); }
-      if (finished && S.view === "job") renderJobPage();
+      if (finished && S.view === "job" && S.tab === "run") renderJobPage();      // never rebuild a page the user may be typing in
     }
     if ((logs || finished) && S.bottomOpen && S.bottomTab === "console") await pullConsole(false);
   } finally { polling = false; }
@@ -112,7 +117,7 @@ function bindChrome() {
   $("#win-close").onclick = async () => {
     const r = await must("win_close", false); if (!r) return;
     if (r.confirm) {
-      const ok = await confirmBox("Quit with tasks running?", h("p", {}, `${r.confirm} task${r.confirm === 1 ? " is" : "s are"} still running. They will be stopped cleanly first. Finished files are kept.`), "Stop and quit", true);
+      const ok = await confirmBox("Quit while tasks are running?", h("p", {}, `${r.confirm} task${r.confirm === 1 ? " is" : "s are"} still running. They will be stopped first. Files that are already finished are kept.`), "Stop and quit", true);
       if (ok) await must("win_close", true);
     }
   };
@@ -126,7 +131,7 @@ function bindChrome() {
     logo.classList.remove("spin"); void logo.offsetWidth; logo.classList.add("spin");
     applyTheme(next); await call("set_theme", next);
     const e = $("#empty-logo"); if (e) e.src = resolvedTheme(next) === "dark" ? "brand/emblem-gold.png" : "brand/emblem.png";
-    toast("Theme: " + next);
+    toast("Theme: " + next + ".");
   };
   // edge/corner resize for the frameless window
   for (const grip of $$(".rz")) {
