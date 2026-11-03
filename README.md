@@ -1,8 +1,8 @@
 # rSimpLone
 
-**by blessedevil** — *rClone fear is at a stake! Copy, Sync and Move via rclone made easy....*
+**by blessedevil**. Copy, sync and move files with rclone, without typing a single command.
 
-A modern desktop app for [rclone](https://rclone.org/). Pick folders, preview with a **dry run**, then run it for real.
+A modern desktop app for [rclone](https://rclone.org/). Pick folders, press **Preview** (rclone's dry run: nothing is changed), then run it for real.
 Jobs are saved, several can run at once, they can run on a schedule, and remotes (or just one folder of them) can be
 mounted as drives. Nothing is hard-coded: every folder, remote and setting is yours.
 
@@ -15,7 +15,7 @@ other end, and a strong wish not to re-read or re-upload anything that doesn't n
 |---|---|---|
 | **Copy** | Adds new and changed files to the destination | Never |
 | **Sync** | Mirrors the source; replaced and removed files move to a backup folder | Never for good: they go to the backup folder |
-| **Move** | Transfers, then removes the originals from the source (every file is verified by checksum first) | **The source files.** Needs a backup folder, and a real run unlocks only after a dry run of the exact same job (24 h, one use) |
+| **Move** | Transfers, then removes the originals from the source (every file is verified by checksum first) | **The source files.** Needs a backup folder, and a real run unlocks only after a preview of the exact same job (24 h, one use) |
 
 Destinations can be a cloud remote, an **encrypted (crypt) remote**, or another local folder. Backups use
 `<backup folder>/<source name>/<YYYYMMDD-HHMMSS>/` on the same remote, so nothing is re-uploaded. Sync and Move
@@ -31,11 +31,13 @@ Other features:
   backup folders too, and the window and the command line see each other's running jobs. If your rclone configuration
   can't be read, the check refuses to run rather than guessing.
 - **Scheduler** (daily, weekly or every N minutes) while the app is open. Scheduled *real* runs need a one-time typed
-  `EXECUTE` and fall back to dry runs if you later edit the job. Move jobs can only be scheduled as dry runs. A background mode keeps it alive with the window closed
+  `EXECUTE` and fall back to previews if you later edit the job. Move jobs can only be scheduled as previews. A background mode keeps it alive with the window closed
   (tray icon with the optional `pystray` + `Pillow` packages; otherwise it just minimises). Running with the app fully
   closed (Task Scheduler / cron) is planned, not built.
 - **Mounts**: mount a remote or a folder of it (needs WinFsp on Windows, macFUSE/FUSE-T on macOS, fuse3 on Linux; the app
   tells you what is missing and installs nothing). Read-only by default.
+- **Jobs**: duplicate or delete a job from its header; **export** all or selected jobs to a JSON file and **import** them elsewhere (New menu or Settings). Schedules, run history and a Move's unlock are never exported, so an imported job starts unscheduled and a Move needs a new preview.
+- **Live run view**: progress, speed, time left, the files being copied right now, and an activity list, per job.
 - **Config tab**: speed profile (HDD/SSD, line speed), behaviour switches and **every rclone flag**, read from
   `rclone help flags` for your rclone version, with what it does on hover. Only values that differ from the default are
   saved. Flags the app controls itself (dry run, backup folder, logging, progress) are refused.
@@ -56,7 +58,7 @@ Other features:
 | Different size | Copied again, no hash |
 | Same size, different modified time | Hashed (the only case that reads your disk); if equal, only the remote time is fixed |
 
-A dry run hashes just like a real run, and rclone doesn't remember hashes between runs.
+A preview hashes just like a real run, and rclone doesn't remember hashes between runs.
 
 ## Requirements and starting it
 
@@ -66,7 +68,7 @@ A dry run hashes just like a real run, and rclone doesn't remember hashes betwee
 - Optional: `pip install pystray Pillow` for the tray icon.
 
 Headless (for Task Scheduler / cron): `python -m rsg --list`, `python -m rsg --run "My job"` (dry run), add
-`--execute --yes` to run for real (a Move still needs its dry run first). **Export script** in a job's Config tab writes a
+`--execute --yes` to run for real (a Move still needs its preview first). **Save as script** in a job's Config tab writes a
 standalone script (not offered for Move jobs: a script has no safety gate).
 
 ## Where things are stored

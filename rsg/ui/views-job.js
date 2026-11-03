@@ -161,7 +161,7 @@ function exportDialog(pre) {
     });
     sync();
     return h("div", {}, h("h2", {}, "Export jobs"),
-      h("p", { class: "note" }, "Saves the chosen jobs to a file you can import on another computer or keep as a backup. Schedules are not included, and Move jobs need a new preview after importing. Passwords are never stored in a job."),
+      h("p", { class: "note" }, "Saves the chosen jobs to a file you can import on another computer or keep as a backup. Schedules are not included, and Move jobs need a new preview after importing. rSimpLone never stores passwords itself, but anything you type into a job's extra options is saved and exported exactly as typed."),
       list, h("div", { class: "row", style: "margin-top:.5rem" }, toggle, count),
       h("div", { class: "btns" }, h("button", { onclick: () => close(false) }, "Cancel"), ok));
   });

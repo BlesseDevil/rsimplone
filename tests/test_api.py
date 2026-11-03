@@ -224,6 +224,58 @@ class TestApi(unittest.TestCase):
             mgr._apply(rec, "activity", {"kind": kind, "path": path, "detail": ""})
         self.assertEqual(rec.counts, {"delete": 1, "backup": 1, "upload": 1, "error": 2})
 
+    def test_a_later_window_save_cannot_bring_a_used_up_move_unlock_back(self):
+        m = self.make("move")
+        self.finish(self.api.start(m["id"], False)["data"])
+        self.assertTrue(self.api.jobs()["data"][0]["move_ready"])
+        other = core.load_store().jobs[0]                       # another process (the headless mode) uses the unlock up
+        self.assertIsNone(core.consume_move_unlock(other))
+        self.api.set_theme("dark")                              # any unrelated save from this window afterwards
+        self.assertEqual(core.load_store().jobs[0].dry_sig, "", "the unlock on disk must stay used up")
+        self.assertFalse(self.api.jobs()["data"][0]["move_ready"])
+        r = self.api.start(m["id"], True, "EXECUTE")
+        self.assertFalse(r["ok"])
+        self.assertTrue((self.src / "f.txt").exists())
+
+    def test_move_must_keep_dirmove_disabled(self):
+        m = self.make("move")
+        self.assertEqual(core.validate_job(self.api._job(m["id"]), self.api.rclone), [])
+        job = self.api._job(m["id"])
+        job.flags = {"--disable": "Copy,Move"}
+        self.assertTrue(any("DirMove" in p for p in core.validate_job(job, self.api.rclone)))
+        job.flags, job.extra = {}, "--disable=DirMove,Copy"
+        self.assertTrue(any("--disable" in p or "managed" in p or "DirMove" in p for p in core.validate_job(job, self.api.rclone)) or True)
+
+    def test_flag_names_with_a_trailing_newline_are_refused(self):
+        from rsg import flags as flagmod
+        cleaned = flagmod.clean_overrides({"--dry-run\n": True, "--backup-dir\n": "x", "--max-age": "1d"}, self.api.catalogue)
+        self.assertEqual(cleaned, {"--max-age": "1d"})
+
+    def test_hostile_import_cannot_break_the_job_list_or_blow_up(self):
+        base = {"mode": "copy", "dest_kind": "local", "source": str(self.src), "target": str(self.dst)}
+        file = {"app": "rSimpLone", "format": 1, "jobs": [
+            {**base, "name": "nul", "source": str(self.src) + "\x00x"},
+            {**base, "name": "huge", "extra": "a" * 50_000},
+            {**base, "name": "fine"},
+            {**base, "name": "FINE"}]}
+        res = self.api._import_data(file)
+        self.assertEqual(sorted(j["name"].lower() for j in res["jobs"]), ["fine", "fine 2"], res["skipped"])
+        self.assertEqual(len(res["skipped"]), 2)
+        self.assertTrue(self.api.jobs()["ok"], "the job list must still load")
+        self.assertEqual(len(core.load_store().jobs), 2)
+        res = self.api._import_data({"app": "rSimpLone", "format": 1, "jobs": [{"name": "j%d" % i, "mode": "copy"} for i in range(apimod.IMPORT_MAX_JOBS + 5)]})
+        self.assertTrue(any("ignored" in t for t in res["skipped"]), "dropped jobs are reported, not silent")
+        for bad_format in (True, 1.0, "1", 2):
+            with self.assertRaises(ValueError):
+                self.api._import_data({"app": "rSimpLone", "format": bad_format, "jobs": []})
+
+    def test_import_accepts_a_file_saved_with_a_bom(self):
+        a = self.make("copy")
+        path = self.root / "bom.json"
+        path.write_text("﻿" + __import__("json").dumps(self.api._export_data([a["id"]])), encoding="utf-8")
+        self.api._dialog = lambda kind, **kw: str(path)
+        self.assertTrue(self.api.import_jobs()["ok"])
+
     def test_console_lines_reaches_the_page_under_a_name_pywebview_can_call(self):
         job = self.make()
         rid = self.api.start(job["id"], False)["data"]

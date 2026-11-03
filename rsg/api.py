@@ -38,7 +38,7 @@ from . import __version__, core, flags as flagmod, mounts, runs, schedule
 CONFIRM_WORD = "EXECUTE"
 LISTING_TTL = 15 * 60
 EXPORT_SKIP = ("id", "schedule", "dry_sig", "dry_ts", "last_run", "last_mode", "last_code", "last_summary")
-IMPORT_MAX_BYTES, IMPORT_MAX_JOBS = 5_000_000, 500
+IMPORT_MAX_BYTES, IMPORT_MAX_JOBS, IMPORT_MAX_TOTAL, IMPORT_MAX_JOB_BYTES = 5_000_000, 500, 1000, 20_000
 THEMES = ("system", "light", "dark")
 BOOT = [
     ("settings", "Reading your jobs…"),
@@ -121,7 +121,7 @@ class Api:
     # ---- plumbing ------------------------------------------------------------------------------
     def _save(self) -> None:
         with self.lock:
-            core.save_store(self.store)
+            core.save_store_keeping_unlocks(self.store)
 
     def _job(self, job_id: str) -> core.Job:
         for j in self.store.jobs:
@@ -141,7 +141,7 @@ class Api:
             job.last_mode = "run" if rec.real else "dry run"
             job.last_code, job.last_summary = res.code, res.summary
             if not rec.real and not res.stopped and res.code in (0, 9):
-                job.dry_sig, job.dry_ts = core.job_signature(job), time.time()
+                core.grant_move_unlock(job)
             elif rec.real and job.mode == "move":
                 job.dry_sig, job.dry_ts = "", 0.0      # a dry run unlocks one real Move, not many
             self._save()
@@ -352,7 +352,12 @@ class Api:
     # ---- jobs ---------------------------------------------------------------------------------------------
     def _job_view(self, job: core.Job) -> Dict[str, Any]:
         d = asdict(job)
-        d["problems"] = core.validate_job(job, self.rclone)
+        try:
+            d["problems"] = core.validate_job(job, self.rclone)
+            d["move_ready"] = job.mode == "move" and core.move_gate(job) is None
+        except (OSError, ValueError) as exc:        # an unreachable or malformed path must not take the whole job list down
+            d["problems"] = ["This job's folders can't be checked (%s). Correct its paths." % type(exc).__name__]
+            d["move_ready"] = False
         d["schedule"] = schedule.normalize(job.schedule)
         d["schedule_text"] = schedule.describe(job.schedule)
         nxt = schedule.next_run(job.schedule, datetime.now())
@@ -360,7 +365,6 @@ class Api:
         d["dest_text"] = core.dest_spec(job) if (job.target or job.dest_kind == "remote" and job.remote) else ""
         d["crypt"] = any(r["name"] == job.remote and r["crypt"] for r in self.remotes) and job.dest_kind == "remote"
         d["busy"] = self.mgr.job_busy(job.id)
-        d["move_ready"] = job.mode == "move" and core.move_gate(job) is None
         return d
 
     @_api
@@ -376,10 +380,10 @@ class Api:
             self._save()
         return self._job_view(job)
 
-    def _unique_name(self, base: str) -> str:
-        names = {j.name for j in self.store.jobs}
+    def _unique_name(self, base: str, also: Any = ()) -> str:
+        names = {j.name.lower() for j in self.store.jobs} | {str(n).lower() for n in also}
         name, n = base, 2
-        while name in names:
+        while name.lower() in names:
             name, n = "%s %d" % (base, n), n + 1
         return name
 
@@ -436,29 +440,45 @@ class Api:
     def _import_data(self, data: Any) -> Dict[str, Any]:
         if not isinstance(data, dict) or data.get("app") != "rSimpLone" or not isinstance(data.get("jobs"), list):
             raise ValueError("This is not a rSimpLone jobs file.")
-        if data.get("format") != 1:
+        if type(data.get("format")) is not int or data["format"] != 1:
             raise ValueError("This file was made by a newer version of rSimpLone.")
+        raws = data["jobs"]
         added: List[core.Job] = []
+        views: List[Dict[str, Any]] = []
         skipped: List[str] = []
+        if len(raws) > IMPORT_MAX_JOBS:
+            skipped.append("%d more jobs were ignored: a file may add at most %d jobs." % (len(raws) - IMPORT_MAX_JOBS, IMPORT_MAX_JOBS))
         with self.lock:
-            for raw in data["jobs"][: IMPORT_MAX_JOBS]:
+            for raw in raws[:IMPORT_MAX_JOBS]:
                 label = str(raw.get("name", "?"))[:60] if isinstance(raw, dict) else "?"
                 try:
                     if not isinstance(raw, dict):
                         raise ValueError("not a job")
+                    text = json.dumps(raw)
+                    if len(text) > IMPORT_MAX_JOB_BYTES:
+                        raise ValueError("this job entry is far too large")
+                    if "\\u0000" in text:
+                        raise ValueError("a value contains an invisible control character")
+                    if len(self.store.jobs) + len(added) >= IMPORT_MAX_TOTAL:
+                        raise ValueError("there are already %d jobs" % IMPORT_MAX_TOTAL)
                     job = _job_from(raw, core.Job())
-                    job.name = self._unique_name((job.name or "").strip() or "Imported job")
+                    job.name = self._unique_name((job.name or "").strip() or "Imported job", [j.name for j in added])
                     job.flags = flagmod.clean_overrides(job.flags, self.catalogue)
                     job.checkers, job.transfers = max(0, job.checkers), max(0, job.transfers)
                     core.build_args(job, False, "STAMP")
+                    views.append(self._job_view(job))      # inside the try: a path that cannot be examined skips this job only
                 except Exception as exc:  # noqa: BLE001  (one malformed entry must be skipped, never abort the whole import)
-                    skipped.append("%s: %s" % (label, exc if isinstance(exc, ValueError) else "not a valid job"))
+                    skipped.append("%s: %s" % (label, (str(exc)[:120] if isinstance(exc, ValueError) else "not a valid job")))
                     continue
-                self.store.jobs.append(job)
                 added.append(job)
             if added:
-                self._save()
-        return {"jobs": [self._job_view(j) for j in added], "skipped": skipped}
+                self.store.jobs.extend(added)
+                try:
+                    self._save()
+                except Exception:
+                    del self.store.jobs[len(self.store.jobs) - len(added):]      # nothing half-imported stays in memory
+                    raise
+        return {"jobs": views, "skipped": skipped}
 
     def _dialog(self, kind: str, **kw: Any) -> str:
         import webview
@@ -482,8 +502,10 @@ class Api:
             return {"path": "", "count": 0}
         if not path.lower().endswith(".json"):
             path += ".json"
-        with open(path, "w", encoding="utf-8") as fh:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, indent=2)
+        core.os.replace(tmp, path)
         return {"path": path, "count": len(payload["jobs"])}
 
     @_api
@@ -493,7 +515,7 @@ class Api:
             return {"jobs": [], "skipped": [], "cancelled": True}
         if core.os.path.getsize(path) > IMPORT_MAX_BYTES:
             raise ValueError("That file is too big to be a jobs file.")
-        with open(path, "r", encoding="utf-8") as fh:
+        with open(path, "r", encoding="utf-8-sig") as fh:      # Notepad adds a BOM
             try:
                 data = json.load(fh)
             except ValueError:

@@ -19,3 +19,7 @@ graphify-out/
 .vs/
 # obsolete first version, kept on disk only
 WinPSObsolete/
+
+# a real setup's job list and rclone config can name folders and remotes
+jobs.json
+rclone.conf

@@ -166,7 +166,38 @@ def save_store(store: Store) -> None:
     payload = {"version": 1, "jobs": [asdict(j) for j in store.jobs], "settings": store.settings}
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    os.replace(tmp, path)
+    for attempt in range(40):               # Windows refuses the swap while a virus scanner or indexer has the file open for a moment
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == 39:
+                raise
+            time.sleep(0.05)
+
+
+def save_store_keeping_unlocks(store: Store) -> None:
+    """Save from the long-lived window. Another process (or a finished Move) may have used up a Move's unlock on disk
+    since this process last read it, so the unlock fields on disk are adopted here and never overwritten from memory."""
+    with _store_lock():
+        disk = {j.id: j for j in load_store().jobs}
+        for j in store.jobs:
+            d = disk.get(j.id)
+            if d is not None:
+                j.dry_sig, j.dry_ts = d.dry_sig, d.dry_ts
+        save_store(store)
+
+
+def grant_move_unlock(job: Job) -> None:
+    """Record a good dry run of this exact job: on disk first (that is what the gate reads), then in memory."""
+    sig, now = job_signature(job), time.time()
+    with _store_lock():
+        store = load_store()
+        disk = next((j for j in store.jobs if j.id == job.id), None)
+        if disk is not None:
+            disk.dry_sig, disk.dry_ts = sig, now
+            save_store(store)
+    job.dry_sig, job.dry_ts = sig, now
 
 
 # --------------------------------------------------------------------------------------------
@@ -290,6 +321,14 @@ def _move_unsafe(job: Job) -> List[str]:
             bad.add("--update")
     if "--checksum" not in args or any(t.split("=", 1)[0] == "--checksum" and "=" in t for t in args):
         bad.add("--checksum (off)")
+    disabled: List[str] = []
+    for i, t in enumerate(args):
+        if t == "--disable" and i + 1 < len(args):
+            disabled.append(args[i + 1])
+        elif t.startswith("--disable="):
+            disabled.append(t.split("=", 1)[1])
+    if not any("dirmove" in d.lower().split(",") for d in disabled):
+        bad.add("--disable DirMove (off)")        # without it a missing destination makes rclone rename the source folder away
     return sorted(bad)
 
 
