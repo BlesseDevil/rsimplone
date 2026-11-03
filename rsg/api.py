@@ -33,7 +33,7 @@ from dataclasses import asdict, fields
 from datetime import datetime
 from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
-from . import __version__, core, flags as flagmod, mounts, runs, schedule
+from . import __version__, core, flags as flagmod, mounts, remotes, runs, schedule
 
 CONFIRM_WORD = "EXECUTE"
 LISTING_TTL = 15 * 60
@@ -179,6 +179,7 @@ class Api:
         detail = ""
         if name == "settings":
             self.store = core.load_store()
+            core.set_config_path(core.config_path_from_settings(self.store.settings))
             detail = "%d jobs" % len(self.store.jobs)
         elif name == "rclone":
             self.rclone = core.find_rclone(str(self.store.settings.get("rclone", "")))
@@ -217,7 +218,7 @@ class Api:
         """Open a web page or a mail draft in the user's own browser / mail app. Nothing else is allowed."""
         import webbrowser
         if not (url.startswith("https://mehedimaruf.com") or url.startswith("https://winfsp.dev") or url.startswith("https://macfuse.io")
-                or url.startswith("https://github.com/libfuse/") or url.startswith("mailto:rsimplone@mehedimaruf.com")):
+                or url.startswith("https://github.com/libfuse/") or url.startswith("https://rclone.org/") or url.startswith("mailto:rsimplone@mehedimaruf.com")):
             raise ValueError("That link is not allowed.")
         webbrowser.open(url)
         return True
@@ -334,12 +335,162 @@ class Api:
 
     @_api
     def save_settings(self, d: Dict[str, Any]) -> bool:
-        allowed = {"rclone": str, "tray_on_close": bool, "default_disk": str}
+        allowed = {"rclone": str, "tray_on_close": bool, "default_disk": str, "advanced": bool}
         for k, typ in allowed.items():
             if k in d:
                 self.store.settings[k] = typ(d[k])
         self._save()
         return True
+
+    # ---- remotes and the rclone config file -----------------------------------------------------------------
+    def _need_rclone(self) -> str:
+        if not self.rclone:
+            raise ValueError("rclone was not found. Install it or set its path in Settings first.")
+        return self.rclone
+
+    def _after_remote_change(self, step: Dict[str, Any]) -> Dict[str, Any]:
+        if step.get("done"):
+            remotes.clear_imported()
+        self._load_remotes()
+        return {"step": step, "remotes": self.remotes}
+
+    @_api
+    def remote_providers(self) -> List[Dict[str, Any]]:
+        return remotes.providers(self._need_rclone())
+
+    @_api
+    def remote_start(self, name: str, rtype: str, values: Dict[str, Any]) -> Dict[str, Any]:
+        return self._after_remote_change(remotes.start(self._need_rclone(), name, rtype, dict(values or {})))
+
+    @_api
+    def remote_update(self, name: str, values: Dict[str, Any]) -> Dict[str, Any]:
+        return self._after_remote_change(remotes.update(self._need_rclone(), name, dict(values or {})))
+
+    @_api
+    def remote_continue(self, name: str, state: str, result: str) -> Dict[str, Any]:
+        return self._after_remote_change(remotes.cont(self._need_rclone(), name, state, str(result)))
+
+    @_api
+    def remote_copy(self, name: str, new_name: str, overrides: Dict[str, Any], copy_token: bool = True) -> List[Dict[str, Any]]:
+        remotes.copy_remote(self._need_rclone(), name, new_name, dict(overrides or {}), bool(copy_token))
+        self._load_remotes()
+        return self.remotes
+
+    @_api
+    def remote_import_credentials(self) -> Dict[str, Any]:
+        """Pick a Google OAuth client JSON file. Only the client id, project and covered fields come back; the secret stays here."""
+        path = self._dialog("OPEN", file_types=("JSON file (*.json)",))
+        if not path:
+            return {"cancelled": True}
+        if core.os.path.getsize(path) > 20000:
+            raise ValueError("That file is too large to be a Google credentials file.")
+        with open(path, "r", encoding="utf-8-sig") as fh:
+            return remotes.parse_google_credentials(fh.read())
+
+    @_api
+    def remote_auth_link(self) -> str:
+        return remotes.auth_link()
+
+    @_api
+    def remote_login_targets(self, name: str) -> List[str]:
+        return remotes.login_targets(self._need_rclone(), name)
+
+    @_api
+    def remote_copy_login(self, name: str, targets: List[str]) -> List[str]:
+        done = remotes.copy_login(self._need_rclone(), name, list(targets or []))
+        self._load_remotes()
+        return done
+
+    @_api
+    def remote_rename(self, old: str, new: str) -> Dict[str, Any]:
+        """Rename a remote in the config file and follow it in every job and mount that uses it."""
+        if self.mgr.active():
+            raise ValueError("Stop the running tasks before renaming a remote.")
+        new = (new or "").strip()
+        with self.lock:
+            followers = remotes.rename_remote(self._need_rclone(), old, new)
+            if new != old:
+                for j in self.store.jobs:
+                    if j.remote == old:
+                        j.remote = new
+                for m in self._mount_specs():
+                    if m.get("remote") == old:
+                        m["remote"] = new
+                self._save()
+        self._load_remotes()
+        return {"remotes": self.remotes, "jobs": [self._job_view(j) for j in self.store.jobs], "followers": followers}
+
+    @_api
+    def remote_cancel(self) -> bool:
+        return remotes.cancel()
+
+    @_api
+    def remote_describe(self, name: str) -> Dict[str, Any]:
+        return remotes.describe(self._need_rclone(), name)
+
+    @_api
+    def remote_test(self, name: str) -> str:
+        return remotes.test(self._need_rclone(), name)
+
+    def _remote_users(self, name: str) -> Dict[str, List[str]]:
+        jobs = [j.name for j in self.store.jobs if j.dest_kind == "remote" and j.remote == name]
+        mnts = [str(m.get("name", "")) for m in self._mount_specs() if m.get("remote") == name]
+        return {"jobs": jobs, "mounts": mnts}
+
+    @_api
+    def remote_uses(self, name: str) -> Dict[str, List[str]]:
+        return self._remote_users(name)
+
+    @_api
+    def remote_delete(self, name: str) -> List[Dict[str, Any]]:
+        users = self._remote_users(name)
+        if users["jobs"] or users["mounts"]:
+            raise ValueError("'%s' is used by %s. Change or delete those first." % (name, ", ".join(users["jobs"] + users["mounts"])[:200]))
+        remotes.delete(self._need_rclone(), name)
+        self._load_remotes()
+        return self.remotes
+
+    @_api
+    def open_config_file(self) -> str:
+        """Open the rclone config file that is in use in a text editor, after making a backup copy. Only that one file."""
+        rclone = self._need_rclone()
+        path = core.Path(remotes.active_config_file(rclone))
+        if not path.is_file():
+            raise ValueError("The rclone config file does not exist yet. Add a remote first, then it will be created.")
+        remotes.backup_config(rclone)
+        core.open_in_editor(str(path))
+        return str(path)
+
+    @_api
+    def config_info(self) -> Dict[str, Any]:
+        s = self.store.settings
+        return {"mode": s.get("config_mode", "default"), "custom": str(s.get("config_custom", "")), "own": core.own_config_file(),
+                "active": remotes.active_config_file(self.rclone) if self.rclone else ""}
+
+    @_api
+    def set_config(self, mode: str, custom: str = "", copy_default: bool = False) -> Dict[str, Any]:
+        """Choose which rclone.conf rSimpLone uses: rclone's default file, its own separate file, or a file you pick."""
+        if mode not in ("default", "own", "custom"):
+            raise ValueError("Unknown choice.")
+        if self.mgr.active():
+            raise ValueError("Stop the running tasks before changing the config file.")
+        custom = (custom or "").strip()
+        if mode == "custom":
+            p = core.Path(custom)
+            if not custom or not p.is_absolute() or not p.parent.is_dir():
+                raise ValueError("Enter the full path of a config file in a folder that exists.")
+        if mode == "own" and copy_default and self.rclone and not core.Path(core.own_config_file()).exists():
+            src = core.Path(remotes.active_config_file(self.rclone))       # the default file: no override is active yet
+            if src.is_file():
+                core.config_dir().mkdir(parents=True, exist_ok=True)
+                core.shutil.copy2(src, core.own_config_file())
+        with self.lock:
+            self.store.settings["config_mode"], self.store.settings["config_custom"] = mode, custom
+            core.set_config_path(core.config_path_from_settings(self.store.settings))
+            remotes._backed_up[0] = False
+            self._save()
+        self._load_remotes()
+        return {"remotes": self.remotes, "info": self.config_info()["data"]}
 
     @_api
     def reload_remotes(self) -> List[Dict[str, Any]]:

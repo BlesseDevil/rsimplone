@@ -28,4 +28,4 @@ A small desktop app for rclone sync and copy jobs.
     flags, schedule, mounts, runs - flag catalogue, scheduler, mounting, simultaneous runs
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"

@@ -142,7 +142,7 @@ class MountRun:
         args = mount_args(self.spec)
         self.proc = subprocess.Popen(
             [self.rclone] + args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-            text=True, encoding="utf-8", errors="replace", **core._popen_flags())
+            text=True, encoding="utf-8", errors="replace", env=core.rclone_env(), **core._popen_flags())
         self._set("mounting")
         threading.Thread(target=self._reader, name="rclone-mount", daemon=True).start()
         threading.Thread(target=self._watch_ready, name="rclone-mount-ready", daemon=True).start()

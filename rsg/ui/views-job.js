@@ -220,6 +220,7 @@ function tabSetup(job) {
       S.remotes.map((r) => h("option", { value: r.name, selected: r.name === job.remote }, (r.crypt ? "🔒 " : "") + r.name + "  ·  " + r.type)));
     sel.addEventListener("change", () => patch(job, { remote: sel.value, target: "", backup_root: "" }, true));
     dest.append(h("div", { class: "row" }, h("div", { class: "grow" }, sel),
+      h("button", { class: "ghost", title: "Connect a new cloud or server", onclick: () => addRemoteDialog() }, icon("plus"), "Add remote…"),
       h("button", { class: "ghost", title: "Re-read the remote list", onclick: async () => { const r = await must("reload_remotes"); if (r) { S.remotes = r; renderJobBody(); toast("Remotes refreshed"); } } }, "Refresh"),
       h("button", { onclick: () => cryptDialog(job) }, icon("lock"), "New encrypted remote…")));
     if (job.crypt) dest.append(h("div", { class: "note", style: "margin-top:.4rem" }, icon("lock"), " Encrypted remote: file names and contents are scrambled before upload. Encrypted files can't be compared by checksum, so size and modified time are used."));
@@ -383,7 +384,8 @@ function tabConfig(job) {
   const depth = h("input", { type: "number", min: 1, max: 6, value: job.list_depth || 1 }); depth.addEventListener("input", () => patch(job, { list_depth: Math.max(1, Number(depth.value) || 1) }));
   stack.append(h("div", { class: "card" }, h("header", {}, h("h2", {}, "Tools")), h("div", { class: "row" }, tools, local ? null : h("label", { class: "f", style: "width:9rem" }, "How deep to list", depth))));
   // flags
-  stack.append(flagsCard(job));
+  if (isAdvanced() || Object.keys(job.flags || {}).length || (job.extra || "").trim()) stack.append(flagsCard(job));
+  else stack.append(h("div", { class: "card" }, h("header", {}, h("h2", {}, "Advanced rclone options")), h("div", { class: "row" }, h("span", { class: "note grow" }, "Hidden in Simple mode. Every rclone option is available in Advanced mode."), h("button", { onclick: () => setAdvanced(true) }, "Show advanced options"))));
   return stack;
 }
 

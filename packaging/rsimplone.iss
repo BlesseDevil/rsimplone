@@ -2,6 +2,10 @@
 ; Copyright (C) 2026 Mehedi Maruf <rsimplone@mehedimaruf.com> (developer), <license@mehedimaruf.com> (licence)
 ; Inno Setup script: per-user install (no admin rights), Start menu entry, optional desktop icon, and a real
 ; uninstaller that asks whether to also delete your jobs, logs and settings (default: keep them).
+; Can't reach rsimplone@mehedimaruf.com or license@mehedimaruf.com?
+; The domain probably expired because HE's TOO BROKE TO RENEW IT.
+; Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead,
+; and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif

@@ -47,7 +47,7 @@ function renderNav() {
   const sch = S.jobs.filter((j) => j.schedule && j.schedule.enabled).length;
   const item = (view, ic, label, count) => h("button", { class: "nav", "aria-current": S.view === view ? "page" : "false", onclick: async () => { S.view = view; if (view === "mounts") await loadMounts(); renderAll(); } },
     icon(ic), label, count ? h("span", { class: "chip count" }, count) : null);
-  nav.append(item("mounts", "drive", "Mounts", live), item("schedules", "clock", "Schedules", sch), item("settings", "gear", "Settings"));
+  nav.append(item("remotes", "cloud", "Remotes", S.remotes.length), item("mounts", "drive", "Mounts", live), item("schedules", "clock", "Schedules", sch), item("settings", "gear", "Settings"));
   const nm = $("#newmenu"); nm.replaceChildren();
   const pop = h("div", { class: "pop", hidden: true }, ["copy", "sync", "move"].map((m) => h("button", { onclick: () => { pop.hidden = true; newJob(m); } }, icon(m), `New ${MODE_LABEL[m].toLowerCase()} job`)),
     h("hr"), h("button", { onclick: () => { pop.hidden = true; importJobs(); } }, icon("import"), "Import jobs…"),
@@ -64,7 +64,7 @@ function renderStatus() {
 }
 function renderAll() {
   renderRail(); renderNav(); renderStatus();
-  if (S.view === "mounts") pageMounts(); else if (S.view === "schedules") pageSchedules(); else if (S.view === "settings") pageSettings(); else renderJobPage();
+  if (S.view === "remotes") pageRemotes(); else if (S.view === "mounts") pageMounts(); else if (S.view === "schedules") pageSchedules(); else if (S.view === "settings") pageSettings(); else renderJobPage();
   renderBottom();
 }
 

@@ -106,6 +106,9 @@ function pageSettings() {
   page.style.gridTemplateRows = "auto minmax(0, 1fr)";
   page.replaceChildren(h("div", { class: "jobhead" }, h("h2", { style: "font-size:1.35rem" }, "Settings")), h("div", { class: "view" }, h("div", { class: "stack" },
     h("div", { class: "card" }, h("header", {}, h("h2", {}, "Appearance")), h("div", { class: "row" }, theme), h("div", { class: "note", style: "margin-top:.4rem" }, "You can also click the logo in the top-left corner to switch between these.")),
+    h("div", { class: "card" }, h("header", {}, h("h2", {}, "Simple or Advanced")), h("div", { class: "row" }, modeSwitch()),
+      h("div", { class: "note", style: "margin-top:.4rem" }, "Simple shows what most people need. Advanced shows every rclone option. It only changes what is shown, never what a job does.")),
+    h("div", { id: "cfg-slot" }),
     h("div", { class: "card" }, h("header", {}, h("h2", {}, "rclone"), h("span", { class: "chip " + (S.rcloneVersion ? "ok" : "bad") }, S.rcloneVersion || "not found")),
       field("Path to rclone", rc, "Press Re-detect after changing this."), h("div", { class: "row", style: "margin-top:.5rem" },
         h("button", { onclick: async () => { await must("save_settings", st); const r = await must("reload_remotes"); if (r) { S.remotes = r; const s = await must("app_state"); if (s) { S.rcloneVersion = s.rclone_version; } toast("rclone detected again.", "ok"); pageSettings(); } } }, "Re-detect"))),
@@ -117,6 +120,7 @@ function pageSettings() {
     h("div", { class: "card" }, h("header", {}, h("h2", {}, "Your data")),
       h("div", { class: "row" }, h("button", { onclick: importJobs }, icon("import"), "Import jobs…"), h("button", { onclick: () => exportDialog() }, icon("export"), "Export jobs…")),
       h("div", { class: "row", style: "margin-top:.5rem" }, h("button", { onclick: () => must("open_path", "data") }, icon("folder"), "Open data folder"), h("button", { onclick: () => must("open_path", "logs") }, icon("list"), "Open logs folder"), h("button", { onclick: aboutDialog }, icon("mail"), "About / Contact dev"))))));
+  configCard().then((c) => $("#cfg-slot")?.replaceWith(c));
 }
 
 // ═══ Bottom pane: running tasks and the console ════════════════════════════════════

@@ -36,6 +36,7 @@ Other features:
   closed (Task Scheduler / cron) is planned, not built.
 - **Mounts**: mount a remote or a folder of it (needs WinFsp on Windows, macFUSE/FUSE-T on macOS, fuse3 on Linux; the app
   tells you what is missing and installs nothing). Read-only by default.
+- **Remotes**: add, test, edit and delete cloud and server connections without leaving the app (rclone's own guided setup, including the browser sign-in), in **Simple** or **Advanced** mode. Choose which rclone config file is used: rclone's default, a separate one for rSimpLone, or any file. Passwords are never shown or logged, a backup of the config is made before changes, and a remote in use can't be deleted.
 - **Jobs**: duplicate or delete a job from its header; **export** all or selected jobs to a JSON file and **import** them elsewhere (New menu or Settings). Schedules, run history and a Move's unlock are never exported, so an imported job starts unscheduled and a Move needs a new preview.
 - **Live run view**: progress, speed, time left, the files being copied right now, and an activity list, per job.
 - **Config tab**: speed profile (HDD/SSD, line speed), behaviour switches and **every rclone flag**, read from
@@ -63,7 +64,7 @@ A preview hashes just like a real run, and rclone doesn't remember hashes betwee
 ## Install
 
 Download from the [Releases](https://github.com/BlesseDevil/rsimplone/releases) page: a Windows **installer** (with an
-uninstaller) or a **portable single file** for Windows or Linux, plus `SHA256SUMS.txt` to check them. You still
+uninstaller) or a **portable single file** for Windows, Linux, or a zipped app for macOS (experimental), plus `SHA256SUMS.txt` to check them. You still
 need **rclone**. The packaged files contain everything else.
 
 ## Dependencies (what the app needs)
@@ -111,6 +112,7 @@ rsg/core.py              jobs, rclone command lines, runs, verification, crypt c
 rsg/flags.py             rclone flag catalogue, app-owned flag denylist, merging
 rsg/schedule.py          schedule rules + ticker
 rsg/mounts.py            rclone mount
+rsg/remotes.py           adding, editing, testing, deleting remotes through rclone's own setup
 rsg/runs.py              several runs at once, overlap and Move safety checks
 rsg/api.py               bridge between the page and the logic
 rsg/app.py               the windows (borderless splash + frameless main)

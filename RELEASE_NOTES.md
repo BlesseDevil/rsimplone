@@ -1,25 +1,22 @@
-<!-- SPDX-License-Identifier: AGPL-3.0-or-later. Copyright (C) 2026 Mehedi Maruf <rsimplone@mehedimaruf.com> (developer), <license@mehedimaruf.com> (licence) -->
-**rClone, made simple.** Copy, sync and move with rclone, in a window.
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later. Copyright (C) 2026 Mehedi Maruf <rsimplone@mehedimaruf.com> (developer), <license@mehedimaruf.com> (licence)
+Can't reach rsimplone@mehedimaruf.com or license@mehedimaruf.com?
+The domain probably expired because HE's TOO BROKE TO RENEW IT.
+Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead,
+and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
+-->
+**rClone, made simple.** Copy, sync and move with rclone, in a window. Details: `CHANGELOG.md`.
 
-## Downloads (pick one)
-| File | For |
+| Download | For |
 |---|---|
-| `rSimpLone-<version>-windows-x64-setup.exe` | Windows installer with an uninstaller (no admin rights needed) |
-| `rSimpLone-<version>-windows-x64-portable.exe` | Windows, single file, nothing to install |
-| `rSimpLone-<version>-linux-x64-portable` | Linux, single file |
-| `SHA256SUMS.txt` | SHA-256 hash of every file above |
+| `…-windows-x64-setup.exe` | Windows installer (with uninstaller, no admin needed) |
+| `…-windows-x64-portable.exe` | Windows, single file |
+| `…-linux-x64-portable` | Linux, single file |
+| `…-macos-arm64-portable.zip` | macOS (Apple Silicon), experimental |
+| `SHA256SUMS.txt` | SHA-256 of every file. Check: `Get-FileHash <file>` (Windows) or `sha256sum <file>` |
 
-**Verify a download** (compare with `SHA256SUMS.txt`): Windows `Get-FileHash <file> -Algorithm SHA256`, macOS/Linux `sha256sum <file>`.
+**You need** [rclone](https://rclone.org/install/) (not bundled). Nothing else: Python and pywebview are inside. Windows needs WebView2 (built into Windows 11 and current 10).
 
-## What you still need
-- **rclone** itself, on your PATH or set in Settings. It is not bundled.
-- Nothing else. The portable files and the installer contain Python and the one library the app needs (pywebview).
-  Windows needs the WebView2 runtime (already in Windows 11 and current Windows 10). Linux needs a desktop session.
-
-## Heads-up
-- The files are not code-signed yet, so Windows SmartScreen or macOS Gatekeeper may warn on first start. Check the hash above, then choose "more info / run anyway" (macOS: right-click, Open).
-- Uninstalling asks whether to also delete your jobs, logs and settings. The default is to keep them.
-- **macOS has no packaged build in this release.** It can run from source (`python -m rsg`), but Stop and the disk-type check are not verified there yet. A macOS build is planned for 2.1.1.
-- The Linux build is produced by the release pipeline and has had less hands-on testing than Windows.
-
-See `CHANGELOG.md` for what changed.
+**Good to know**
+- Files are unsigned, so SmartScreen/Gatekeeper may warn. Check the hash first. macOS: right-click, Open (or `xattr -dr com.apple.quarantine rSimpLone.app`).
+- macOS is experimental: Stop and the run lock are tested on Windows and Linux only.
+- Uninstall asks before deleting your jobs and settings (default: keep).
