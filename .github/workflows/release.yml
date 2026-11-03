@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - { os: windows-latest, name: windows-x64, ext: .exe, extra: "" }
@@ -35,7 +35,7 @@ jobs:
       - name: Run the tests (needs rclone)
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then choco install rclone -y --no-progress; elif [ "$RUNNER_OS" = "macOS" ]; then brew install rclone; else sudo apt-get install -y rclone; fi
+          if [ "$RUNNER_OS" = "Windows" ]; then choco install rclone -y --no-progress; elif [ "$RUNNER_OS" = "macOS" ]; then brew install rclone; else curl -fsSL https://rclone.org/install.sh | sudo bash; fi      # apt's rclone is far too old
           python -m unittest discover -s tests
       - name: Build the portable single file
         shell: bash
