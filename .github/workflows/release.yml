@@ -43,7 +43,10 @@ jobs:
           SEP=":"; [ "$RUNNER_OS" = "Windows" ] && SEP=";"
           ICON=""; [ "$RUNNER_OS" = "Windows" ] && ICON="--icon rsg/ui/brand/rsimplone.ico"
           pyinstaller --noconfirm --onefile --windowed --name rSimpLone $ICON \
-            --add-data "rsg/ui${SEP}rsg/ui" --collect-submodules webview packaging/entry.py
+            --paths . --add-data "rsg/ui${SEP}rsg/ui" --collect-submodules rsg --collect-submodules webview packaging/entry.py
+          # prove the built file really starts: headless --list must exit 0 (a missing module would fail here)
+          export RSG_HOME="$RUNNER_TEMP/smoke-home" RSG_TESTING=
+          "dist/rSimpLone${{ matrix.ext }}" --list
           mkdir -p out
           cp "dist/rSimpLone${{ matrix.ext }}" "out/rSimpLone-${{ steps.ver.outputs.v }}-${{ matrix.name }}-portable${{ matrix.ext }}"
       - name: Windows installer with uninstaller (Inno Setup)
