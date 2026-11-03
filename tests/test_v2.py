@@ -288,6 +288,21 @@ class TestSimultaneous(Base):
 
 @unittest.skipUnless(RCLONE, "rclone not installed")
 class TestCrypt(Base):
+    def test_crypt_settings_are_passed_as_key_value_so_a_leading_dash_is_not_a_flag(self):
+        seen = {}
+        real = (core._obscure, core.run_capture, core.list_remotes)
+        core._obscure = lambda rclone, text: "-" + text            # an obscured password can start with a dash
+        core.list_remotes = lambda rclone: []
+        core.run_capture = lambda rclone, args, timeout=60, stdin_text=None: (seen.setdefault("args", args), (0, "", ""))[1]
+        try:
+            core.create_crypt_remote("rclone", "vault", "base:", "pw", "salt")
+        finally:
+            core._obscure, core.run_capture, core.list_remotes = real
+        words = [a for a in seen["args"] if a.startswith("-")]
+        self.assertEqual(words, ["--no-obscure", "--non-interactive"], "only the real flags may start with a dash")
+        self.assertIn("password=-pw", seen["args"])
+        self.assertIn("password2=-salt", seen["args"])
+
     def test_create_crypt_and_roundtrip_without_leaking_password(self):
         cfg = self.root / "rclone.conf"
         os.environ["RCLONE_CONFIG"] = str(cfg)

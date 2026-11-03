@@ -656,11 +656,12 @@ def create_crypt_remote(rclone: str, name: str, base: str, password: str, salt: 
         raise RcloneError("Unknown file name encryption.")
     if name in [n for n, _ in list_remotes(rclone)]:
         raise RcloneError("A remote called '%s' already exists." % name)
-    args = ["config", "create", name, "crypt", "remote", base, "password", _obscure(rclone, password),
-            "filename_encryption", filename_encryption, "directory_name_encryption", "true" if dir_encryption else "false",
-            "--no-obscure", "--non-interactive"]
+    # key=value, never "key value": an obscured password can start with "-", which rclone would read as a flag
+    pairs = [("remote", base), ("password", _obscure(rclone, password))]
     if salt:
-        args[args.index("filename_encryption"):args.index("filename_encryption")] = ["password2", _obscure(rclone, salt)]
+        pairs.append(("password2", _obscure(rclone, salt)))
+    pairs += [("filename_encryption", filename_encryption), ("directory_name_encryption", "true" if dir_encryption else "false")]
+    args = ["config", "create", name, "crypt"] + ["%s=%s" % kv for kv in pairs] + ["--no-obscure", "--non-interactive"]
     code, _out, err = run_capture(rclone, args, timeout=60)
     if code != 0:
         raise RcloneError(("could not create the remote: " + " ".join(err.strip().splitlines()[-2:])) if err.strip() else "could not create the remote")
