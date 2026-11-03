@@ -16,9 +16,8 @@ and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 html, body.splash { background: transparent; height: 100%; overflow: hidden; user-select: none; cursor: default; }
 #splash { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem 2rem 1.2rem; color: var(--splash-text);
   text-shadow: 0 0 10px var(--splash-halo), 0 0 3px var(--splash-halo), 0 1px 2px var(--splash-halo); }
-.disc { position: relative; width: min(330px, 62vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden; isolation: isolate; flex: none;
-  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--portal-backdrop) 86%, var(--portal-ink-1)), var(--portal-backdrop) 72%);
-  box-shadow: 0 0 60px 6px color-mix(in srgb, var(--crimson) 38%, transparent), 0 18px 50px rgba(0, 0, 0, .35); animation: arrive .9s var(--ease) both; }
+.disc { position: relative; width: min(330px, 62vw); aspect-ratio: 1; overflow: visible; isolation: isolate; flex: none;
+  background: none; animation: arrive .9s var(--ease) both; }
 @keyframes arrive { from { transform: scale(.6); opacity: 0; filter: blur(8px); } }
 .orb { position: absolute; inset: 0; pointer-events: none; }
 .orb span { position: absolute; top: 50%; left: 50%; width: var(--size, 100%); aspect-ratio: 1; border-radius: var(--r, 90% 95% 85% 105%); background: var(--ink); mix-blend-mode: var(--portal-blend);

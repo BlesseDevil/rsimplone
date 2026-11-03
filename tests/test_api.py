@@ -19,6 +19,11 @@
 # and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 """Tests for the window bridge (api.py) without opening a window. Run with:  python -m unittest discover -s tests -v"""
 import os
+import tempfile as _tf
+
+os.environ["RSG_TESTING"] = "1"
+_SAFE_HOME = os.path.join(_tf.gettempdir(), "rsg-tests-never-real")      # what RSG_HOME falls back to between tests
+os.environ["RSG_HOME"] = _SAFE_HOME
 import sys
 import tempfile
 import time
@@ -59,7 +64,7 @@ class TestApi(unittest.TestCase):
 
     def tearDown(self):
         self.api.shutdown()
-        os.environ.pop("RSG_HOME", None)
+        os.environ["RSG_HOME"] = _SAFE_HOME
         self.tmp.cleanup()
 
     def make(self, mode="copy"):

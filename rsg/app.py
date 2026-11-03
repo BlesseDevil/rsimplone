@@ -115,6 +115,37 @@ class Tray:
         self.window.destroy()
 
 
+def _taskbar_icon(titles: Any) -> None:
+    """Windows shows pythonw's icon unless the process has its own identity and its windows carry an icon."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        import threading
+        import time
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("blessedevil.rSimpLone")
+        ico = str(UI_DIR / "brand" / "rsimplone.ico")
+        user32 = ctypes.windll.user32
+
+        def load(metric: int) -> Any:
+            size = user32.GetSystemMetrics(metric)
+            return user32.LoadImageW(None, ico, 1, size, size, 0x10)
+
+        big, small = load(11), load(49)
+
+        def apply() -> None:
+            for _ in range(60):          # the windows appear a moment after start-up
+                for title in titles:
+                    hwnd = user32.FindWindowW(None, title)
+                    if hwnd:
+                        user32.SendMessageW(hwnd, 0x80, 1, big)
+                        user32.SendMessageW(hwnd, 0x80, 0, small)
+                time.sleep(0.5)
+        threading.Thread(target=apply, daemon=True).start()
+    except Exception:  # noqa: BLE001  (a missing icon must never stop the app)
+        pass
+
+
 def main(driver: Optional[Any] = None) -> int:
     """Open the windows. `driver(window, splash, api)` is for tests: it runs in a thread once the GUI loop is up."""
     if sys.stdout is None or sys.stderr is None:      # started by pythonw (double-click): no console
@@ -141,6 +172,7 @@ def main(driver: Optional[Any] = None) -> int:
         "rSimpLone", url=str(UI_DIR / "splash.html"), js_api=api, width=sw, height=sh, x=sx, y=sy,
         frameless=True, easy_drag=True, transparent=True, on_top=True, resizable=False, shadow=False)
     holder["window"] = window
+    _taskbar_icon((("rSimpLone by blessedevil"), "rSimpLone"))
     center = screen_center()
     splash.events.loaded += recenter(splash, center)
     api._attach_windows(splash, window, recenter(window, center))

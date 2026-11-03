@@ -76,6 +76,8 @@ def config_dir() -> Path:
     override = os.environ.get("RSG_HOME")
     if override:
         return Path(override)
+    if os.environ.get("RSG_TESTING"):       # a test (or a thread it left behind) must never fall back to the real data folder
+        raise RuntimeError("RSG_TESTING is set but RSG_HOME is not: refusing to touch the real data folder")
     if IS_WIN:
         base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
     elif sys.platform == "darwin":

@@ -21,6 +21,11 @@
 checks the outcome by file CONTENT. Run with:  python -m unittest discover -s tests -v"""
 import hashlib
 import os
+import tempfile as _tf
+
+os.environ["RSG_TESTING"] = "1"
+_SAFE_HOME = os.path.join(_tf.gettempdir(), "rsg-tests-never-real")      # what RSG_HOME falls back to between tests
+os.environ["RSG_HOME"] = _SAFE_HOME
 import sys
 import tempfile
 import time
@@ -59,7 +64,7 @@ class Base(unittest.TestCase):
         self.mgr = runs.RunManager(lambda: RCLONE)
 
     def tearDown(self):
-        os.environ.pop("RSG_HOME", None)
+        os.environ["RSG_HOME"] = _SAFE_HOME
         self.tmp.cleanup()
 
     def job(self, **kw):
