@@ -272,8 +272,12 @@ class TestStop(Base):
         self.assertEqual(rec.state, "stopped")
         self.assertLess(time.time() - t, 8, "a graceful stop, not the kill timer")
         self.assertIn("stopped", rec.result.meaning)
+        self.assertFalse((self.dst / "big.bin").exists(), "no half-written file under the real name")
+        # rclone's own temp file (.partial) may linger on a loaded machine; the next run must finish the file and clean it up
+        rid2 = self.mgr.start_job(self.job(mode="copy", backup_root=""), True)
+        wait_done(self.mgr, rid2, timeout=60)
+        self.assertEqual(sha(self.dst / "big.bin"), sha(self.src / "big.bin"))
         self.assertEqual([p.name for p in self.dst.iterdir() if p.name.endswith(".partial")], [])
-        self.assertEqual(sha(self.src / "big.bin"), sha(self.src / "big.bin"))
 
 
 @unittest.skipUnless(RCLONE, "rclone not installed")
