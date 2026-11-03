@@ -283,12 +283,13 @@ class RunManager:
             rec.counts = dict(res.counts) or rec.counts
             rec.errors = len(res.errors)
             rec.ended = time.time()
-            rec.state = "stopped" if res.stopped else ("done" if res.code in (0, 9) else "failed")
-            if self.on_done:
+            final = "stopped" if res.stopped else ("done" if res.code in (0, 9) else "failed")
+            if self.on_done:        # first: the unlock of a good dry run must be recorded before anyone can see the run as finished
                 try:
                     self.on_done(rec)
                 except Exception:  # noqa: BLE001
                     pass
+            rec.state = final
             self._emit(rec.id, "state", rec.view())
         elif kind == "mstate":
             st = payload.get("state", "")
