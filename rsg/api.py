@@ -692,7 +692,7 @@ class Api:
             job = self._job(job_id)
             s = schedule.normalize(sched)
             if s["enabled"] and s["real"] and job.mode == "move":
-                raise ValueError("Scheduled real Moves are not allowed. Schedule dry runs, or run a Move by hand.")
+                raise ValueError("Scheduled real Moves are not allowed. Schedule previews, or run a Move by hand.")
             if s["enabled"] and s["real"]:
                 if confirm.strip() != CONFIRM_WORD:
                     raise ValueError("Type %s to allow scheduled real runs of this job." % CONFIRM_WORD)

@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Mehedi Maruf <rsimplone@mehedimaruf.com> (developer), <license@mehedimaruf.com> (licence)
+# Builds the portable single-file app on Windows, macOS and Linux, the Windows installer (with uninstaller), and
+# SHA256SUMS.txt. A tag like v2.1.0 publishes a GitHub release ONLY if every build succeeded. "Run workflow" builds
+# the same files without releasing, for a test.
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: windows-latest, name: windows-x64, ext: .exe, extra: "" }
+          - { os: macos-latest, name: macos, ext: "", extra: "" }
+          - { os: ubuntu-22.04, name: linux-x64, ext: "", extra: "[qt]" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Linux system libraries for the Qt web view
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3
+      - name: Install build tools and the app's one required dependency (pywebview)
+        run: python -m pip install --upgrade pip "pywebview${{ matrix.extra }}>=5" pyinstaller
+      - name: Version
+        id: ver
+        shell: bash
+        run: echo "v=$(python -c "import re;print(re.search(r'__version__ = \"(.+?)\"',open('rsg/__init__.py').read()).group(1))")" >> "$GITHUB_OUTPUT"
+      - name: Run the tests (needs rclone)
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then choco install rclone -y --no-progress; elif [ "$RUNNER_OS" = "macOS" ]; then brew install rclone; else sudo apt-get install -y rclone; fi
+          python -m unittest discover -s tests
+      - name: Build the portable single file
+        shell: bash
+        run: |
+          SEP=":"; [ "$RUNNER_OS" = "Windows" ] && SEP=";"
+          ICON=""; [ "$RUNNER_OS" = "Windows" ] && ICON="--icon rsg/ui/brand/rsimplone.ico"
+          pyinstaller --noconfirm --onefile --windowed --name rSimpLone $ICON \
+            --add-data "rsg/ui${SEP}rsg/ui" --collect-submodules webview packaging/entry.py
+          mkdir -p out
+          cp "dist/rSimpLone${{ matrix.ext }}" "out/rSimpLone-${{ steps.ver.outputs.v }}-${{ matrix.name }}-portable${{ matrix.ext }}"
+      - name: Windows installer with uninstaller (Inno Setup)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.ver.outputs.v }}" packaging\rsimplone.iss
+          Move-Item "packaging\Output\rSimpLone-${{ steps.ver.outputs.v }}-windows-x64-setup.exe" out\
+      - uses: actions/upload-artifact@v4
+        with: { name: "${{ matrix.name }}", path: out/* }
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: out, merge-multiple: true }
+      - name: Hashes
+        run: cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Publish the release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh release create "${{ github.ref_name }}" out/* --title "rSimpLone ${{ github.ref_name }}" --notes-file RELEASE_NOTES.md

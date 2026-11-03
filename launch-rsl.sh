@@ -20,7 +20,7 @@
 # and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 #
 # Starts the GUI detached from the terminal, so closing the terminal does not close the app and no
-# terminal stays tied to it. (On Windows just double-click rsg.pyw.)
+# terminal stays tied to it. (On Windows just double-click rsl.pyw.)
 DIR=$(cd "$(dirname "$0")" && pwd)
 PY=$(command -v python3 || command -v python)
 [ -z "$PY" ] && { echo "Python 3 was not found." >&2; exit 1; }

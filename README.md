@@ -60,11 +60,28 @@ Other features:
 
 A preview hashes just like a real run, and rclone doesn't remember hashes between runs.
 
+## Install
+
+Download from the [Releases](https://github.com/BlesseDevil/rsimplone/releases) page: a Windows **installer** (with an
+uninstaller) or a **portable single file** for Windows, macOS or Linux, plus `SHA256SUMS.txt` to check them. You still
+need **rclone**. The packaged files contain everything else.
+
+## Dependencies (what the app needs)
+
+| Needs | Why | Where it comes from |
+|---|---|---|
+| **rclone** | does all the copying | you install it; found on `PATH` or set in Settings. Never bundled or downloaded for you |
+| **pywebview** (the only Python package) | draws the window | `pip install pywebview`; already inside the installer and portable files |
+| Python 3.9+ | runs the code (standard library only otherwise) | only when running from source; inside the packaged files |
+| WebView2 (Windows), WebKit (macOS), Qt or GTK web view (Linux) | the page engine pywebview uses | built into Windows 10/11 and macOS; on Linux install `pywebview[qt]` or your distro's GTK WebKit |
+| `pystray` + `Pillow` (optional) | tray icon for background mode | `pip install pystray Pillow`; without them the window just minimises |
+| WinFsp / macFUSE or FUSE-T / fuse3 (optional) | mounts only | you install it; the app tells you what is missing |
+
 ## Requirements and starting it
 
 - **Python 3.9+** and **rclone** on your `PATH` (or set its path in Settings).
 - `python -m pip install pywebview` (a Qt/GTK WebKit is needed on Linux; Windows 10/11 uses the built-in WebView2).
-- Windows: double-click `rsg.pyw` (no console window). Linux/macOS: `./launch-rsg.sh`. Anywhere: `python -m rsg`.
+- Windows: double-click `rsl.pyw` (no console window). Linux/macOS: `./launch-rsl.sh`. Anywhere: `python -m rsg`.
 - Optional: `pip install pystray Pillow` for the tray icon.
 
 Headless (for Task Scheduler / cron): `python -m rsg --list`, `python -m rsg --run "My job"` (dry run), add
@@ -89,7 +106,7 @@ For a quick look at the interface without Python, serve `rsg/ui` and open `index
 ## Project layout
 
 ```
-rsg.pyw, launch-rsg.sh   launchers
+rsl.pyw, launch-rsl.sh   launchers
 rsg/core.py              jobs, rclone command lines, runs, verification, crypt creation, disk detection
 rsg/flags.py             rclone flag catalogue, app-owned flag denylist, merging
 rsg/schedule.py          schedule rules + ticker

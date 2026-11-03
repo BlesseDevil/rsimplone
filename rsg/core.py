@@ -46,7 +46,7 @@ MODES = ("copy", "sync", "move")
 MODE_HELP = {
     "copy": "Adds new and changed files. Never deletes anything (a changed file replaces the old copy: set a backup folder to keep it).",
     "sync": "Mirrors the source. Anything replaced or removed goes into the backup folder, never lost.",
-    "move": "Transfers files, then removes the originals. Always preview with a dry run first.",
+    "move": "Copies files to the destination, then deletes the originals. Run a preview first.",
 }
 
 EXIT_MEANINGS = {
@@ -770,7 +770,7 @@ def move_gate(job: Job) -> Optional[str]:
     fresh = time.time() - float(job.dry_ts or 0) < DRY_RUN_VALID_SECONDS
     if job.dry_sig and job.dry_sig == job_signature(job) and fresh:
         return None
-    return ("A real Move removes the source files. Run a dry run of this exact job first "
+    return ("A real Move removes the source files. Run a preview of this exact job first "
             "(it stays valid for 24 hours, for one real run, and until you change the job).")
 
 
@@ -993,7 +993,7 @@ def _store_lock(timeout: float = 8.0):
 def consume_move_unlock(job: Job) -> Optional[str]:
     """Use up the dry-run unlock of a Move, atomically across processes (what is on disk is the truth, not this
     process's memory). Returns a refusal message, or None when the real Move may start NOW. Call it right before starting."""
-    refusal = ("A real Move removes the source files. Run a dry run of this exact job first "
+    refusal = ("A real Move removes the source files. Run a preview of this exact job first "
                "(it stays valid for 24 hours, for one real run, and until you change the job).")
     sig = job_signature(job)
     with _store_lock():

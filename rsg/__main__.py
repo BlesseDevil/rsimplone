@@ -19,7 +19,7 @@
 # and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 """Program entry:  python -m rsg   (window)   |   python -m rsg --list | --run NAME [--execute --yes]   (headless).
 
-On Windows start it through rsg.pyw (or pythonw -m rsg) so no console window is created."""
+On Windows start it through rsl.pyw (or pythonw -m rsg) so no console window is created."""
 import os
 import sys
 import time

@@ -24,7 +24,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rsimplone"
-version = "2.0.0"
+version = "2.1.0"
 description = "rSimpLone by blessedevil: rClone, made simple"
 readme = "README.md"
 requires-python = ">=3.9"
