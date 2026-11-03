@@ -143,9 +143,18 @@ def load_store() -> Store:
     store = Store()
     if not path.exists():
         return store
+    text = ""
+    for attempt in range(20):               # a virus scanner can hold the file for a moment: that is not a damaged file
+        try:
+            text = path.read_text(encoding="utf-8")
+            break
+        except OSError:
+            if attempt == 19:
+                raise
+            time.sleep(0.05)
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        data = json.loads(text)
+    except ValueError:
         # keep the unreadable file around instead of silently overwriting it on the next save
         try:
             path.replace(path.with_suffix(".broken.json"))
@@ -183,8 +192,7 @@ def save_store_keeping_unlocks(store: Store) -> None:
         disk = {j.id: j for j in load_store().jobs}
         for j in store.jobs:
             d = disk.get(j.id)
-            if d is not None:
-                j.dry_sig, j.dry_ts = d.dry_sig, d.dry_ts
+            j.dry_sig, j.dry_ts = (d.dry_sig, d.dry_ts) if d is not None else ("", 0.0)      # unknown on disk: no unlock
         save_store(store)
 
 
@@ -961,7 +969,7 @@ def _store_lock(timeout: float = 8.0):
             fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             os.close(fd)
             break
-        except FileExistsError:
+        except (FileExistsError, PermissionError):      # Windows reports a file that is being deleted as PermissionError
             try:
                 if time.time() - path.stat().st_mtime > 15:       # a crashed holder
                     path.unlink()

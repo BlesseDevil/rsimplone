@@ -85,6 +85,17 @@ def _coerce(name: str, value: Any, sample: Any) -> Any:
     return value
 
 
+def _has_control_chars(obj: Any) -> bool:
+    """True when any string inside (keys too) holds a control character, a bidi override or a lone surrogate."""
+    if isinstance(obj, str):
+        return any(ord(c) < 32 or ord(c) == 0x7F or 0x202A <= ord(c) <= 0x202E or 0x2066 <= ord(c) <= 0x2069 or 0xD800 <= ord(c) <= 0xDFFF for c in obj)
+    if isinstance(obj, dict):
+        return any(_has_control_chars(k) or _has_control_chars(v) for k, v in obj.items())
+    if isinstance(obj, (list, tuple)):
+        return any(_has_control_chars(v) for v in obj)
+    return False
+
+
 def _job_from(d: Dict[str, Any], base: Optional[core.Job] = None) -> core.Job:
     known = {f.name: f for f in fields(core.Job)}
     job = base or core.Job()
@@ -377,8 +388,16 @@ class Api:
             job = core.Job(name=self._unique_name("New %s job" % mode), mode=mode if mode in core.MODES else "copy",
                            disk=str(self.store.settings.get("default_disk", "hdd")))
             self.store.jobs.append(job)
-            self._save()
+            self._commit(lambda: self.store.jobs.remove(job))
         return self._job_view(job)
+
+    def _commit(self, undo: Callable[[], None]) -> None:
+        """Save; if that fails, put memory back as it was so it cannot disagree with the disk."""
+        try:
+            self._save()
+        except Exception:
+            undo()
+            raise
 
     def _unique_name(self, base: str, also: Any = ()) -> str:
         names = {j.name.lower() for j in self.store.jobs} | {str(n).lower() for n in also}
@@ -398,8 +417,9 @@ class Api:
             job.flags = flagmod.clean_overrides(job.flags, self.catalogue)
             job.checkers, job.transfers = max(0, job.checkers), max(0, job.transfers)
             core.build_args(job, False, "STAMP")        # raises ValueError for flags the app owns: refuse the save
-            self.store.jobs[self.store.jobs.index(old)] = job
-            self._save()
+            at = self.store.jobs.index(old)
+            self.store.jobs[at] = job
+            self._commit(lambda: self.store.jobs.__setitem__(at, old))
         return self._job_view(job)
 
     @_api
@@ -408,8 +428,9 @@ class Api:
             job = self._job(job_id)
             if self.mgr.job_busy(job.id):
                 raise ValueError("Stop this job before deleting it.")
+            at = self.store.jobs.index(job)
             self.store.jobs.remove(job)
-            self._save()
+            self._commit(lambda: self.store.jobs.insert(at, job))
         return True
 
     @_api
@@ -423,7 +444,7 @@ class Api:
             copy = _job_from(data, core.Job())
             copy.name = self._unique_name(src.name + " copy")
             self.store.jobs.append(copy)
-            self._save()
+            self._commit(lambda: self.store.jobs.remove(copy))
         return self._job_view(copy)
 
     # ---- export / import of job definitions ---------------------------------------------------------------
@@ -457,7 +478,7 @@ class Api:
                     text = json.dumps(raw)
                     if len(text) > IMPORT_MAX_JOB_BYTES:
                         raise ValueError("this job entry is far too large")
-                    if "\\u0000" in text:
+                    if _has_control_chars(raw):
                         raise ValueError("a value contains an invisible control character")
                     if len(self.store.jobs) + len(added) >= IMPORT_MAX_TOTAL:
                         raise ValueError("there are already %d jobs" % IMPORT_MAX_TOTAL)

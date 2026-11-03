@@ -241,6 +241,39 @@ class TestApi(unittest.TestCase):
         self.assertFalse(r["ok"])
         self.assertTrue((self.src / "f.txt").exists())
 
+    def test_a_missing_or_damaged_jobs_file_cannot_revive_a_used_up_unlock(self):
+        m = self.make("move")
+        self.finish(self.api.start(m["id"], False)["data"])
+        for _ in range(100):
+            if self.api.jobs()["data"][0]["move_ready"]:
+                break
+            time.sleep(0.05)
+        self.assertIsNone(core.consume_move_unlock(core.load_store().jobs[0]))
+        core._jobs_file().unlink()                                # the file vanishes (or is replaced by an empty one)
+        self.api.set_theme("dark")
+        self.assertEqual(core.load_store().jobs[0].dry_sig, "")
+        self.assertFalse(self.api.start(m["id"], True, "EXECUTE")["ok"])
+        self.assertTrue((self.src / "f.txt").exists())
+
+    def test_failed_save_leaves_memory_as_the_disk_is(self):
+        self.make("copy")
+        real = core.save_store_keeping_unlocks
+        core.save_store_keeping_unlocks = lambda store: (_ for _ in ()).throw(OSError("disk full"))
+        try:
+            self.assertFalse(self.api.new_job("copy")["ok"])
+            self.assertFalse(self.api.delete_job(self.api.store.jobs[0].id)["ok"])
+        finally:
+            core.save_store_keeping_unlocks = real
+        self.assertEqual(len(self.api.store.jobs), 1)
+        self.assertEqual(len(core.load_store().jobs), 1)
+
+    def test_import_refuses_control_and_bidi_characters(self):
+        base = {"mode": "copy"}
+        bad = ["a\x01b", "a\nb", "a\x1bb", "a\x7fb", "a‮b", "a\ud800b"]
+        res = self.api._import_data({"app": "rSimpLone", "format": 1, "jobs": [{**base, "name": n} for n in bad] + [{**base, "name": "ok", "extra": "tab\there"[:0] + "x"}]})
+        self.assertEqual([j["name"] for j in res["jobs"]], ["ok"])
+        self.assertEqual(len(res["skipped"]), len(bad))
+
     def test_move_must_keep_dirmove_disabled(self):
         m = self.make("move")
         self.assertEqual(core.validate_job(self.api._job(m["id"]), self.api.rclone), [])
