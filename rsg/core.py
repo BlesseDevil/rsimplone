@@ -327,7 +327,7 @@ def _move_unsafe(job: Job) -> List[str]:
             disabled.append(args[i + 1])
         elif t.startswith("--disable="):
             disabled.append(t.split("=", 1)[1])
-    if not any("dirmove" in d.lower().split(",") for d in disabled):
+    if not disabled or not all("dirmove" in d.lower().split(",") for d in disabled):      # every --disable must keep it: which one rclone honours is not worth betting on
         bad.add("--disable DirMove (off)")        # without it a missing destination makes rclone rename the source folder away
     return sorted(bad)
 

@@ -1,6 +1,6 @@
 # rSimpLone
 
-**by blessedevil**. Copy, sync and move files with rclone, without typing a single command.
+**by blessedevil**. *rClone, made simple.*
 
 A modern desktop app for [rclone](https://rclone.org/). Pick folders, press **Preview** (rclone's dry run: nothing is changed), then run it for real.
 Jobs are saved, several can run at once, they can run on a schedule, and remotes (or just one folder of them) can be
@@ -105,6 +105,8 @@ tests/                   unit tests and the real-window smoke test
 
 Copyright (C) 2026 blessedevil | Mehedi Maruf. GNU Affero General Public License v3 or later
 (`AGPL-3.0-or-later`); the full text is in `LICENSE`. Bundled fonts (Inter, Geist Mono) are under the SIL OFL; see `rsg/ui/fonts`.
+
+**The emblem and logo artwork in `rsg/ui/brand/` is proprietary: all rights reserved by blessedevil | Mehedi Maruf. It is not covered by the AGPL and may not be reused, redistributed or used to brand a fork without written permission.**
 
 - Developer: rsimplone@mehedimaruf.com
 - Licence questions: license@mehedimaruf.com

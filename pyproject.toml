@@ -25,7 +25,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rsimplone"
 version = "2.0.0"
-description = "rSimpLone by blessedevil: copy, sync and move with rclone, made easy"
+description = "rSimpLone by blessedevil: rClone, made simple"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "AGPL-3.0-or-later" }

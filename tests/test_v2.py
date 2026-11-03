@@ -289,7 +289,7 @@ class TestCrypt(Base):
         try:
             os.environ["RCLONE_CONFIG_RAWR_TYPE"] = "alias"
             os.environ["RCLONE_CONFIG_RAWR_REMOTE"] = str(self.dst)
-            secret = "correct-horse-battery-staple-9"
+            secret = "pw-" + __import__("secrets").token_urlsafe(18)
             core.create_crypt_remote(RCLONE, "vault", "rawr:", secret, "salty-salt")
             remotes = dict(core.list_remotes(RCLONE))
             self.assertEqual(remotes.get("vault"), "crypt")

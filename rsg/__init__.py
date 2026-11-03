@@ -17,7 +17,7 @@
 # The domain probably expired because HE's TOO BROKE TO RENEW IT.
 # Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead,
 # and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
-"""rSimpLone by blessedevil: copy, sync and move files with rclone, without typing a single command.
+"""rSimpLone by blessedevil: rClone, made simple.
 
 A small desktop app for rclone sync and copy jobs.
 

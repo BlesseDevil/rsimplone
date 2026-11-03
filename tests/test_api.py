@@ -227,8 +227,12 @@ class TestApi(unittest.TestCase):
     def test_a_later_window_save_cannot_bring_a_used_up_move_unlock_back(self):
         m = self.make("move")
         self.finish(self.api.start(m["id"], False)["data"])
+        for _ in range(100):                                    # the run is marked finished a moment before its unlock is recorded
+            if self.api.jobs()["data"][0]["move_ready"]:
+                break
+            time.sleep(0.05)
         self.assertTrue(self.api.jobs()["data"][0]["move_ready"])
-        other = core.load_store().jobs[0]                       # another process (the headless mode) uses the unlock up
+        other = core.load_store().jobs[0]                      # another process (the headless mode) uses the unlock up
         self.assertIsNone(core.consume_move_unlock(other))
         self.api.set_theme("dark")                              # any unrelated save from this window afterwards
         self.assertEqual(core.load_store().jobs[0].dry_sig, "", "the unlock on disk must stay used up")
@@ -243,8 +247,8 @@ class TestApi(unittest.TestCase):
         job = self.api._job(m["id"])
         job.flags = {"--disable": "Copy,Move"}
         self.assertTrue(any("DirMove" in p for p in core.validate_job(job, self.api.rclone)))
-        job.flags, job.extra = {}, "--disable=DirMove,Copy"
-        self.assertTrue(any("--disable" in p or "managed" in p or "DirMove" in p for p in core.validate_job(job, self.api.rclone)) or True)
+        job.flags, job.extra = {}, "--disable=Copy"
+        self.assertTrue(core.validate_job(job, self.api.rclone), "a hand-typed --disable must not slip past")
 
     def test_flag_names_with_a_trailing_newline_are_refused(self):
         from rsg import flags as flagmod
