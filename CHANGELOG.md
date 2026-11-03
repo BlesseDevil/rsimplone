@@ -9,7 +9,7 @@
 - **Tests can never touch real data** (they refuse to run without a throwaway data folder).
 - **Look and wording:** plain-language labels ("Preview" instead of "Dry run"), new tagline, dual-tone taskbar icon, splash portal no longer cut off by a circle.
 - **Launchers renamed:** `rsl.pyw` and `launch-rsl.sh`.
-- **Packaging:** Windows installer with uninstaller, portable single files for Windows, macOS and Linux, SHA-256 hashes.
+- **Packaging:** Windows installer with uninstaller, portable single files for Windows and Linux, SHA-256 hashes. (macOS packaging is planned for 2.1.1.)
 
 ## 2.0.0
 - New pywebview interface, Move jobs with a dry-run gate, encrypted remotes, mounts, scheduler, console.

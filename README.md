@@ -63,7 +63,7 @@ A preview hashes just like a real run, and rclone doesn't remember hashes betwee
 ## Install
 
 Download from the [Releases](https://github.com/BlesseDevil/rsimplone/releases) page: a Windows **installer** (with an
-uninstaller) or a **portable single file** for Windows, macOS or Linux, plus `SHA256SUMS.txt` to check them. You still
+uninstaller) or a **portable single file** for Windows or Linux, plus `SHA256SUMS.txt` to check them. You still
 need **rclone**. The packaged files contain everything else.
 
 ## Dependencies (what the app needs)

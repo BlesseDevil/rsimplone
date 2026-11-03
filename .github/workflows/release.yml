@@ -16,7 +16,7 @@ jobs:
       matrix:
         include:
           - { os: windows-latest, name: windows-x64, ext: .exe, extra: "" }
-          - { os: macos-latest, name: macos, ext: "", extra: "" }
+          # macOS is left out of 2.1.0: its tests fail on timing and disk-type assumptions and have not been verified on a Mac (see CHANGELOG)
           - { os: ubuntu-22.04, name: linux-x64, ext: "", extra: "[qt]" }
     runs-on: ${{ matrix.os }}
     steps:

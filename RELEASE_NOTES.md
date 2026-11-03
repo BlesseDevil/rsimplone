@@ -6,7 +6,6 @@
 |---|---|
 | `rSimpLone-<version>-windows-x64-setup.exe` | Windows installer with an uninstaller (no admin rights needed) |
 | `rSimpLone-<version>-windows-x64-portable.exe` | Windows, single file, nothing to install |
-| `rSimpLone-<version>-macos-portable` | macOS, single file |
 | `rSimpLone-<version>-linux-x64-portable` | Linux, single file |
 | `SHA256SUMS.txt` | SHA-256 hash of every file above |
 
@@ -20,6 +19,7 @@
 ## Heads-up
 - The files are not code-signed yet, so Windows SmartScreen or macOS Gatekeeper may warn on first start. Check the hash above, then choose "more info / run anyway" (macOS: right-click, Open).
 - Uninstalling asks whether to also delete your jobs, logs and settings. The default is to keep them.
-- macOS and Linux builds are produced by the release pipeline and have had less hands-on testing than Windows.
+- **macOS has no packaged build in this release.** It can run from source (`python -m rsg`), but Stop and the disk-type check are not verified there yet. A macOS build is planned for 2.1.1.
+- The Linux build is produced by the release pipeline and has had less hands-on testing than Windows.
 
 See `CHANGELOG.md` for what changed.
