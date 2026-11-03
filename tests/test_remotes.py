@@ -7,6 +7,7 @@
 # and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 """Remote management against real rclone, in a THROWAWAY rclone.conf. The real one is never touched (its mtime is checked)."""
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -57,7 +58,7 @@ class TestRemotes(unittest.TestCase):
     def tearDown(self):
         core.set_config_path("")
         os.environ["RSG_HOME"] = _SAFE_HOME
-        self.tmp.cleanup()
+        shutil.rmtree(self.tmp.name, ignore_errors=True)      # a run may still be closing its log: never fail a test on that
 
     def names(self):
         return dict(core.list_remotes(RCLONE))
@@ -264,7 +265,7 @@ class TestRemoteApi(unittest.TestCase):
         self.api.shutdown()
         core.set_config_path("")
         os.environ["RSG_HOME"] = _SAFE_HOME
-        self.tmp.cleanup()
+        shutil.rmtree(self.tmp.name, ignore_errors=True)      # a run may still be closing its log: never fail a test on that
 
     def test_own_config_file_is_separate_and_can_start_from_a_copy(self):
         info = self.api.config_info()["data"]

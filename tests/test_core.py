@@ -20,6 +20,7 @@
 """Tests for rsg_core. They run real rclone against a throwaway local 'alias' remote and check results by
 file content, never by counts alone. Run with:  python -m unittest discover -s tests -v"""
 import os
+import shutil
 import tempfile as _tf
 
 os.environ["RSG_TESTING"] = "1"
@@ -67,7 +68,7 @@ class Base(unittest.TestCase):
 
     def tearDown(self):
         os.environ["RSG_HOME"] = _SAFE_HOME
-        self.tmp.cleanup()
+        shutil.rmtree(self.tmp.name, ignore_errors=True)      # a run may still be closing its log: never fail a test on that
 
     def write(self, base, rel, text):
         p = Path(base) / rel

@@ -19,6 +19,7 @@
 # and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 """Tests for the window bridge (api.py) without opening a window. Run with:  python -m unittest discover -s tests -v"""
 import os
+import shutil
 import tempfile as _tf
 
 os.environ["RSG_TESTING"] = "1"
@@ -65,7 +66,7 @@ class TestApi(unittest.TestCase):
     def tearDown(self):
         self.api.shutdown()
         os.environ["RSG_HOME"] = _SAFE_HOME
-        self.tmp.cleanup()
+        shutil.rmtree(self.tmp.name, ignore_errors=True)      # a run may still be closing its log: never fail a test on that
 
     def make(self, mode="copy"):
         job = self.api.new_job(mode)["data"]
