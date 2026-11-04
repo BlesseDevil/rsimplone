@@ -8,6 +8,7 @@ mounted as drives. Nothing is hard-coded: every folder, remote and setting is yo
 
 It was built for one situation: a big folder on a slow USB hard drive, a modest home connection, Google Drive on the
 other end, and a strong wish not to re-read or re-upload anything that doesn't need it.
+**but quickly turned into a complete rClone GUI**
 
 ## What it does
 
