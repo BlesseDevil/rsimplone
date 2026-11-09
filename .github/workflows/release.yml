@@ -47,7 +47,7 @@ jobs:
           SEP=":"; [ "$RUNNER_OS" = "Windows" ] && SEP=";"
           ICON=""; [ "$RUNNER_OS" = "Windows" ] && ICON="--icon rsg/ui/brand/rsimplone.ico"
           MODE="--onefile --windowed"; [ "$RUNNER_OS" = "macOS" ] && MODE="--onedir --windowed"
-          # Linux bundles Qt's web engine; leave out the Qt parts the app never uses (media, 3D, PDF, Bluetooth, SQL, tests...)
+          # Linux bundles Qt's web engine (~232 MB). These exclusions were tried in 2.2.1 and saved nothing; kept as harmless
           SKIP=""
           if [ "$RUNNER_OS" = "Linux" ]; then
             for m in QtMultimedia QtMultimediaWidgets Qt3DCore Qt3DRender Qt3DInput Qt3DLogic Qt3DAnimation Qt3DExtras QtQuick3D QtPdf QtPdfWidgets QtBluetooth QtNfc QtSensors QtSql QtTest QtDesigner QtCharts QtDataVisualization QtSerialPort QtRemoteObjects QtHelp QtTextToSpeech QtSpatialAudio; do SKIP="$SKIP --exclude-module PyQt6.$m"; done

@@ -11,7 +11,7 @@ and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 - rclone is now also found where those installers put it, so a freshly installed rclone works without restarting the app or editing PATH (also fixes macOS apps started from the Dock).
 - Settings: **Re-detect** says honestly whether rclone was found.
 - **Update check (off until you say yes):** the app asks once, and Settings has a switch and a Check now button. If on, it asks GitHub once a day for the newest published release and shows a bar with a link when there is one. It only tells you: nothing is downloaded or installed. GitHub sees your internet address, like any website.
-- **Smaller Linux file:** unused Qt parts (media, 3D, PDF, Bluetooth, SQL, tests) are left out. Build files are kept for 3 days instead of 90.
+- Linux file is still about 232 MB: it bundles Qt's web engine, and leaving out unused Qt parts did not make it smaller. Build files are kept for 3 days instead of 90.
 
 ## 2.2.0
 - **Remotes inside the app:** a Remotes page to add, test, edit and delete cloud and server connections (Google Drive, OneDrive, Dropbox, S3, SFTP, WebDAV, B2, FTP, SMB and every other backend rclone has). The forms come from rclone itself, including its follow-up questions and the browser sign-in. A half-made remote is removed again if you cancel.
