@@ -77,7 +77,7 @@ async function pageRemotes() {
     h("button", { class: "ghost sm", onclick: () => { S.view = "settings"; renderAll(); } }, "Change…"), configButtons()));
   if (!S.rcloneVersion) {
     stack.append(h("div", { class: "warnbox" }, icon("alert"), " rclone was not found. rSimpLone needs it for everything. ",
-      h("a", { href: "#", onclick: (e) => { e.preventDefault(); must("open_url", "https://rclone.org/install/"); } }, "How to install rclone"), " then press Re-detect in Settings."));
+      h("button", { class: "primary sm", onclick: installRcloneDialog }, "Install rclone…")));
   } else if (!S.remotes.length) {
     stack.append(h("div", { class: "empty card" }, h("h2", {}, "Connect your first cloud or server"),
       h("p", {}, "A remote is a saved connection, like Google Drive or an SFTP server. Add one, then pick it as the destination of a job."),
@@ -397,4 +397,80 @@ async function configCard() {
       choice("custom", "A file I choose", "Any rclone.conf, for example on another drive."),
       h("div", { class: "row" }, h("div", { class: "grow" }, custom), h("button", { onclick: () => apply("custom") }, "Use this file")),
       h("div", { class: "note" }, "In use now: ", h("code", { class: "mono-sel" }, info.active || "(unknown)"), ". Every job, mount and check uses this file. A backup copy is made before the first change in each session."), h("div", { class: "row" }, configButtons())));
+}
+
+// ═══ guided rclone install ═══════════════════════════════════════════════════════════
+// The bar under the title when rclone is missing, and the dialog behind its button. The page can only say yes:
+// the command is fixed in Python (rsg/installer.py) and shown here before anything runs.
+function renderRcloneBanner() {
+  const b = $("#rcbanner"); if (!b) return;
+  b.replaceChildren();
+  if (S.rcloneVersion) {
+    const u = S.update;
+    if (u && u.newer && !S.updateHidden) b.append(h("div", { class: "warnbox rcbar ok" }, icon("alert"),
+      h("span", {}, h("b", {}, `rSimpLone ${u.latest} is available. `), `You have ${u.current}.`),
+      h("button", { class: "primary sm", onclick: () => must("open_url", u.url) }, "See what's new"),
+      h("button", { class: "sm", onclick: () => { S.updateHidden = true; renderRcloneBanner(); } }, "Later")));
+    return;
+  }
+  b.append(h("div", { class: "warnbox rcbar" }, icon("alert"),
+    h("span", {}, h("b", {}, "rclone is not installed. "), "rSimpLone needs it for every job. We can help you install it."),
+    h("button", { class: "primary sm", onclick: installRcloneDialog }, "Install rclone…")));
+}
+async function redetectRclone() {
+  await must("reload_remotes");
+  const s = await must("app_state");
+  if (s) Object.assign(S, { rcloneVersion: s.rclone_version, remotes: s.remotes });
+  const c = await call("flag_catalogue"); if (c.ok) S.catalogue = c.data;
+  renderAll();
+  return !!S.rcloneVersion;
+}
+async function installRcloneDialog() {
+  const p = (await call("rclone_install_plan")).data; if (!p) return;
+  const guide = h("a", { href: "#", onclick: (e) => { e.preventDefault(); must("open_url", p.page); } }, "rclone's install guide");
+  await dialog((close) => {
+    const out = h("pre", { class: "mono-sel", style: "max-height:9rem;overflow:auto;white-space:pre-wrap;font-size:.8rem" });
+    const msg = h("div", { class: "note", hidden: true });
+    const go = h("button", { class: "primary" }, "Install rclone");
+    const check = h("button", { hidden: p.can_run, onclick: async () => { toast((await redetectRclone()) ? "rclone found." : "rclone is still not found.", S.rcloneVersion ? "ok" : "bad"); if (S.rcloneVersion) close(true); } }, "I installed it, check again");
+    go.hidden = !p.can_run;
+    go.addEventListener("click", async () => {
+      go.disabled = true; msg.hidden = false; msg.textContent = "Installing… this can take a minute.";
+      if (!(await call("rclone_install_start")).ok) { msg.textContent = "Could not start the install."; go.disabled = false; return; }
+      for (;;) {
+        await wait(1000);
+        const r = (await call("rclone_install_status")).data; if (!r) break;
+        out.textContent = r.tail.join("\n");
+        if (r.state === "done") { await redetectRclone(); toast("Installed " + r.found, "ok"); close(true); return; }
+        if (r.state === "failed") { msg.replaceChildren("The install did not finish. You can try again, or follow ", guide, "."); go.disabled = false; return; }
+      }
+    });
+    const how = p.text
+      ? (p.can_run ? h("p", {}, "rSimpLone will run this with ", h("b", {}, p.label), ". Nothing else on your computer is changed:")
+                   : h("p", {}, "Open a terminal, paste this, and run it (it asks for your password). Then come back and press the check button:"))
+      : h("p", {}, "This computer has no installer rSimpLone can use. Please follow ", guide, ", then press the check button.");
+    return h("div", {}, h("h2", {}, "Install rclone"),
+      h("p", {}, "rclone is the free program that does the actual copying. rSimpLone does not include it."), how,
+      p.text ? h("div", { class: "row" }, h("code", { class: "mono-sel grow" }, p.text), p.can_run ? null : h("button", { class: "sm", onclick: () => copyText(p.text) }, icon("copy"), "Copy")) : null,
+      out, msg,
+      h("div", { class: "btns" }, h("button", { onclick: () => close(false) }, "Close"), p.text && !p.can_run ? h("button", { class: "ghost", onclick: () => must("open_url", p.page) }, "Install guide") : null, check, go));
+  });
+}
+
+// ═══ update check (opt-in; it only looks, nothing is downloaded or installed) ═══════════
+async function runUpdateCheck(force) {
+  const r = await call("update_check", !!force);
+  if (!r.ok) return force ? toast(r.error, "bad") : undefined;
+  S.update = r.data; S.updateHidden = false; renderRcloneBanner();
+  if (force) toast(r.data.failed ? "Could not reach GitHub." : r.data.newer ? `rSimpLone ${r.data.latest} is available.` : "You have the latest version.", r.data.failed ? "bad" : "ok");
+}
+async function askUpdateCheck() {
+  if (S.settings.update_check !== undefined && S.settings.update_check !== null) return;
+  const yes = await dialog((close) => h("div", {}, h("h2", {}, "Check for new versions?"),
+    h("p", {}, "rSimpLone can ask GitHub once a day whether a newer version has been published, and tell you if so. It never downloads or installs anything."),
+    h("p", { class: "note" }, "GitHub sees your internet address, like any website you visit. Nothing else is sent. You can change this any time in Settings."),
+    h("div", { class: "btns" }, h("button", { onclick: () => close(false) }, "No thanks"), h("button", { class: "primary", onclick: () => close(true) }, "Yes, check daily"))));
+  S.settings.update_check = yes === true;
+  await must("save_settings", { update_check: yes === true });
+  if (yes === true) runUpdateCheck(false);
 }

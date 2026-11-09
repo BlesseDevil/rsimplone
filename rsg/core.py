@@ -456,7 +456,32 @@ class RcloneError(Exception):
 def find_rclone(custom: str = "") -> Optional[str]:
     if custom and os.path.isfile(custom):
         return custom
-    return shutil.which("rclone")
+    found = shutil.which("rclone")
+    if found:
+        return found
+    return next((p for p in _known_rclone_places() if os.path.isfile(p)), None)
+
+
+def _known_rclone_places() -> List[str]:
+    """Where package managers put rclone. A window started from the desktop, or a shell opened before the install,
+    often does not have these on PATH yet."""
+    if IS_WIN:
+        home = os.path.expanduser("~")
+        local = os.environ.get("LOCALAPPDATA", os.path.join(home, "AppData", "Local"))
+        found = [os.path.join(local, "Microsoft", "WinGet", "Links", "rclone.exe"), os.path.join(home, "scoop", "shims", "rclone.exe"),
+                 os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "chocolatey", "bin", "rclone.exe")]
+        pkgs = os.path.join(local, "Microsoft", "WinGet", "Packages")
+        try:
+            for d in sorted(os.listdir(pkgs)):
+                if d.startswith("Rclone.Rclone"):
+                    for sub in os.listdir(os.path.join(pkgs, d)):
+                        found.append(os.path.join(pkgs, d, sub, "rclone.exe"))
+                    found.append(os.path.join(pkgs, d, "rclone.exe"))
+        except OSError:
+            pass
+        return found
+    return ["/opt/homebrew/bin/rclone", "/usr/local/bin/rclone", "/usr/bin/rclone",
+            os.path.expanduser("~/.local/bin/rclone"), "/home/linuxbrew/.linuxbrew/bin/rclone"]
 
 
 def _popen_flags() -> Dict[str, Any]:

@@ -63,7 +63,7 @@ function renderStatus() {
     h("a", { href: "#", title: HINT, onclick: (e) => { e.preventDefault(); must("open_url", SITE); } }, COPYRIGHT));
 }
 function renderAll() {
-  renderRail(); renderNav(); renderStatus();
+  renderRail(); renderNav(); renderStatus(); renderRcloneBanner();
   if (S.view === "remotes") pageRemotes(); else if (S.view === "mounts") pageMounts(); else if (S.view === "schedules") pageSchedules(); else if (S.view === "settings") pageSettings(); else renderJobPage();
   renderBottom();
 }
@@ -168,5 +168,6 @@ async function init() {
   renderAll();
   setInterval(pollNow, 450);
   call("ui_ready");
+  if (S.settings.update_check === true) runUpdateCheck(false); else askUpdateCheck();
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();

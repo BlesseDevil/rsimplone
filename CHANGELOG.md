@@ -6,6 +6,13 @@ and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 -->
 # Changelog
 
+## 2.2.1
+- **Guided rclone install:** when rclone is missing, a bar appears with **Install rclone…**. It shows the exact command and runs it only after you say yes: winget or Scoop on Windows, Homebrew on macOS and Linux. Where there is no such installer (or the official Linux script needs your password) it shows the command to copy. rSimpLone never downloads rclone itself.
+- rclone is now also found where those installers put it, so a freshly installed rclone works without restarting the app or editing PATH (also fixes macOS apps started from the Dock).
+- Settings: **Re-detect** says honestly whether rclone was found.
+- **Update check (off until you say yes):** the app asks once, and Settings has a switch and a Check now button. If on, it asks GitHub once a day for the newest published release and shows a bar with a link when there is one. It only tells you: nothing is downloaded or installed. GitHub sees your internet address, like any website.
+- **Smaller Linux file:** unused Qt parts (media, 3D, PDF, Bluetooth, SQL, tests) are left out. Build files are kept for 3 days instead of 90.
+
 ## 2.2.0
 - **Remotes inside the app:** a Remotes page to add, test, edit and delete cloud and server connections (Google Drive, OneDrive, Dropbox, S3, SFTP, WebDAV, B2, FTP, SMB and every other backend rclone has). The forms come from rclone itself, including its follow-up questions and the browser sign-in. A half-made remote is removed again if you cancel.
 - **Google sign-in made easier:** Google Drive and Google Photos are listed first. The shared-key question explains the risk and suggests No; import the JSON credentials file you download from Google (the secret stays inside the app) or type the client id and secret by hand; the sign-in link can be copied to open in another browser or profile. Y and N keys work on yes/no questions.

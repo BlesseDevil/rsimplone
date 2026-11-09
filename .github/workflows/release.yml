@@ -47,7 +47,12 @@ jobs:
           SEP=":"; [ "$RUNNER_OS" = "Windows" ] && SEP=";"
           ICON=""; [ "$RUNNER_OS" = "Windows" ] && ICON="--icon rsg/ui/brand/rsimplone.ico"
           MODE="--onefile --windowed"; [ "$RUNNER_OS" = "macOS" ] && MODE="--onedir --windowed"
-          pyinstaller --noconfirm $MODE --name rSimpLone $ICON             --paths . --add-data "rsg/ui${SEP}rsg/ui" --collect-submodules rsg --collect-submodules webview packaging/entry.py
+          # Linux bundles Qt's web engine; leave out the Qt parts the app never uses (media, 3D, PDF, Bluetooth, SQL, tests...)
+          SKIP=""
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            for m in QtMultimedia QtMultimediaWidgets Qt3DCore Qt3DRender Qt3DInput Qt3DLogic Qt3DAnimation Qt3DExtras QtQuick3D QtPdf QtPdfWidgets QtBluetooth QtNfc QtSensors QtSql QtTest QtDesigner QtCharts QtDataVisualization QtSerialPort QtRemoteObjects QtHelp QtTextToSpeech QtSpatialAudio; do SKIP="$SKIP --exclude-module PyQt6.$m"; done
+          fi
+          pyinstaller --noconfirm $MODE --name rSimpLone $ICON             --paths . --add-data "rsg/ui${SEP}rsg/ui" --collect-submodules rsg --collect-submodules webview $SKIP packaging/entry.py
           BIN="dist/rSimpLone${{ matrix.ext }}"; [ "$RUNNER_OS" = "macOS" ] && BIN="dist/rSimpLone.app/Contents/MacOS/rSimpLone"
           # prove the built app really starts and carries its page files: headless --list must exit 0
           export RSG_HOME="$RUNNER_TEMP/smoke-home" RSG_TESTING=
@@ -66,7 +71,7 @@ jobs:
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.ver.outputs.v }}" packaging\rsimplone.iss
           Move-Item "packaging\Output\rSimpLone-${{ steps.ver.outputs.v }}-windows-x64-setup.exe" out\
       - uses: actions/upload-artifact@v4
-        with: { name: "${{ matrix.name }}", path: out/* }
+        with: { name: "${{ matrix.name }}", path: out/*, retention-days: 3 }
 
   release:
     needs: build

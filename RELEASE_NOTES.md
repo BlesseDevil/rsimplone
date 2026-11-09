@@ -14,7 +14,7 @@ and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 | `…-macos-arm64-portable.zip` | macOS (Apple Silicon), experimental |
 | `SHA256SUMS.txt` | SHA-256 of every file. Check: `Get-FileHash <file>` (Windows) or `sha256sum <file>` |
 
-**You need** [rclone](https://rclone.org/install/) (not bundled). Nothing else: Python and pywebview are inside. Windows needs WebView2 (built into Windows 11 and current 10).
+**You need** [rclone](https://rclone.org/install/) (not bundled; the app offers to install it for you). Nothing else: Python and pywebview are inside. Windows needs WebView2 (built into Windows 11 and current 10).
 
 **Good to know**
 - Files are unsigned, so SmartScreen/Gatekeeper may warn. Check the hash first. macOS: right-click, Open (or `xattr -dr com.apple.quarantine rSimpLone.app`).

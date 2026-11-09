@@ -33,7 +33,7 @@ from dataclasses import asdict, fields
 from datetime import datetime
 from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
-from . import __version__, core, flags as flagmod, mounts, remotes, runs, schedule
+from . import __version__, core, flags as flagmod, installer, mounts, remotes, runs, schedule, updates
 
 CONFIRM_WORD = "EXECUTE"
 LISTING_TTL = 15 * 60
@@ -218,7 +218,7 @@ class Api:
         """Open a web page or a mail draft in the user's own browser / mail app. Nothing else is allowed."""
         import webbrowser
         if not (url.startswith("https://mehedimaruf.com") or url.startswith("https://winfsp.dev") or url.startswith("https://macfuse.io")
-                or url.startswith("https://github.com/libfuse/") or url.startswith("https://rclone.org/") or url.startswith("mailto:rsimplone@mehedimaruf.com")):
+                or url.startswith("https://github.com/libfuse/") or url.startswith("https://rclone.org/") or url.startswith(updates.RELEASES) or url.startswith("mailto:rsimplone@mehedimaruf.com")):
             raise ValueError("That link is not allowed.")
         webbrowser.open(url)
         return True
@@ -335,12 +335,32 @@ class Api:
 
     @_api
     def save_settings(self, d: Dict[str, Any]) -> bool:
-        allowed = {"rclone": str, "tray_on_close": bool, "default_disk": str, "advanced": bool}
+        allowed = {"rclone": str, "tray_on_close": bool, "default_disk": str, "advanced": bool, "update_check": bool}
         for k, typ in allowed.items():
             if k in d:
                 self.store.settings[k] = typ(d[k])
         self._save()
         return True
+
+    @_api
+    def update_check(self, force: bool = False) -> Dict[str, Any]:
+        """Is a newer release published? Only when the user switched the check on (force = the Check now button, which
+        is itself a yes). At most one request a day; the last answer is remembered in the settings."""
+        if not (force or self.store.settings.get("update_check") is True):
+            return {"newer": False}
+        seen = self.store.settings.get("update_seen")
+        seen = seen if isinstance(seen, dict) else {}
+        tag = seen.get("tag") if isinstance(seen.get("tag"), str) else None
+        if force or not tag or time.time() - float(seen.get("t") or 0) > 86400:
+            fresh = updates.fetch_latest()
+            if fresh:
+                tag = fresh
+                self.store.settings["update_seen"] = {"t": time.time(), "tag": fresh}
+                self._save()
+            elif force:
+                return {"newer": False, "failed": True}
+        newer = bool(tag) and updates.is_newer(__version__, tag)
+        return {"newer": newer, "current": __version__, "latest": (tag or "")[1:], "url": updates.release_url(tag) if newer and tag else ""}
 
     # ---- remotes and the rclone config file -----------------------------------------------------------------
     def _need_rclone(self) -> str:
@@ -498,6 +518,25 @@ class Api:
         self.version = core.rclone_version(self.rclone) if self.rclone else ""
         self._load_remotes()
         return self.remotes
+
+    @_api
+    def rclone_install_plan(self) -> Dict[str, Any]:
+        return installer.plan()
+
+    @_api
+    def rclone_install_start(self) -> Dict[str, Any]:
+        """Runs the one fixed command from installer.plan(); the page can only say yes, never choose a command."""
+        return installer.start()
+
+    @_api
+    def rclone_install_status(self) -> Dict[str, Any]:
+        st = installer.status()
+        if st["state"] == "done" and not self.rclone:
+            self.rclone = core.find_rclone(str(self.store.settings.get("rclone", "")))
+            self.version = core.rclone_version(self.rclone) if self.rclone else ""
+            self._load_remotes()
+            self._load_catalogue()
+        return st
 
     @_api
     def flag_catalogue(self) -> List[Dict[str, Any]]:

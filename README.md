@@ -40,6 +40,7 @@ Other features:
 - **Remotes**: add, test, edit and delete cloud and server connections without leaving the app (rclone's own guided setup, including the browser sign-in), in **Simple** or **Advanced** mode. Choose which rclone config file is used: rclone's default, a separate one for rSimpLone, or any file. Passwords are never shown or logged, a backup of the config is made before changes, and a remote in use can't be deleted.
 - **Jobs**: duplicate or delete a job from its header; **export** all or selected jobs to a JSON file and **import** them elsewhere (New menu or Settings). Schedules, run history and a Move's unlock are never exported, so an imported job starts unscheduled and a Move needs a new preview.
 - **Live run view**: progress, speed, time left, the files being copied right now, and an activity list, per job.
+- **Update check:** off until you allow it (asked once, switch in Settings). It asks GitHub once a day for the newest release and links to it; it never downloads or installs anything.
 - **Config tab**: speed profile (HDD/SSD, line speed), behaviour switches and **every rclone flag**, read from
   `rclone help flags` for your rclone version, with what it does on hover. Only values that differ from the default are
   saved. Flags the app controls itself (dry run, backup folder, logging, progress) are refused.
@@ -72,7 +73,7 @@ need **rclone**. The packaged files contain everything else.
 
 | Needs | Why | Where it comes from |
 |---|---|---|
-| **rclone** | does all the copying | you install it; found on `PATH` or set in Settings. Never bundled or downloaded for you |
+| **rclone** | does all the copying | found on `PATH`, in the usual winget/Scoop/Homebrew places, or set in Settings. If missing, the app offers to install it with your package manager after you confirm the command. Never bundled or downloaded by the app itself |
 | **pywebview** (the only Python package) | draws the window | `pip install pywebview`; already inside the installer and portable files |
 | Python 3.9+ | runs the code (standard library only otherwise) | only when running from source; inside the packaged files |
 | WebView2 (Windows), WebKit (macOS), Qt or GTK web view (Linux) | the page engine pywebview uses | built into Windows 10/11 and macOS; on Linux install `pywebview[qt]` or your distro's GTK WebKit |
