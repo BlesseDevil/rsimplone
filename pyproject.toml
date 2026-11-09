@@ -29,8 +29,14 @@ description = "rSimpLone by blessedevil: rClone, made simple"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "AGPL-3.0-or-later" }
-authors = [{ name = "blessedevil | Mehedi Maruf" }]
+authors = [{ name = "Mehedi Maruf (BlesseDevil)" }]
 dependencies = ["pywebview>=5"]
+
+[project.urls]
+Homepage = "https://rsimplone.mehedimaruf.com"
+Source = "https://github.com/BlesseDevil/rsimplone"
+Issues = "https://github.com/BlesseDevil/rsimplone/issues"
+Author = "https://mehedimaruf.com"
 
 [project.optional-dependencies]
 tray = ["pystray>=0.19", "Pillow>=10"]

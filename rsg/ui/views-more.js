@@ -19,6 +19,7 @@ function aboutDialog() {
     h("p", {}, "rClone, made simple."),
     h("p", { class: "note" }, `Version ${S.version} · ${S.rcloneVersion || "rclone not found"} · AGPL-3.0-or-later`),
     h("dl", { style: "display:grid;grid-template-columns:auto 1fr;gap:.2rem .9rem;margin:.6rem 0" },
+      h("dt", { class: "muted" }, "Author"), h("dd", { style: "margin:0" }, h("a", { href: "#", onclick: (e) => { e.preventDefault(); must("open_url", SITE); } }, "Mehedi Maruf (BlesseDevil)")),
       h("dt", { class: "muted" }, "Developer"), h("dd", { style: "margin:0" }, h("a", { href: "#", onclick: (e) => { e.preventDefault(); must("open_url", "mailto:" + CONTACT); } }, CONTACT)),
       h("dt", { class: "muted" }, "Licence"), h("dd", { style: "margin:0" }, LICENSE_CONTACT),
       h("dt", { class: "muted" }, "Website"), h("dd", { style: "margin:0" }, h("a", { href: "#", onclick: (e) => { e.preventDefault(); must("open_url", SITE); } }, "mehedimaruf.com"))),

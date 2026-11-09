@@ -1,6 +1,6 @@
 # rSimpLone
 
-**by blessedevil**. *rClone, made simple.*
+**by [Mehedi Maruf (BlesseDevil)](https://mehedimaruf.com)**. *rClone, made simple.*
 
 **Download: <https://rsimplone.mehedimaruf.com>** (or the [Releases](https://github.com/BlesseDevil/rsimplone/releases) page).
 
