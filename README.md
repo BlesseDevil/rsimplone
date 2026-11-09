@@ -2,6 +2,8 @@
 
 **by blessedevil**. *rClone, made simple.*
 
+**Download: <https://rsimplone.mehedimaruf.com>** (or the [Releases](https://github.com/BlesseDevil/rsimplone/releases) page).
+
 A modern desktop app for [rclone](https://rclone.org/). Pick folders, press **Preview** (rclone's dry run: nothing is changed), then run it for real.
 Jobs are saved, several can run at once, they can run on a schedule, and remotes (or just one folder of them) can be
 mounted as drives. Nothing is hard-coded: every folder, remote and setting is yours.

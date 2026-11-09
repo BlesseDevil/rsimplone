@@ -1,0 +1,232 @@
+<!doctype html>
+<!--
+SPDX-License-Identifier: AGPL-3.0-or-later. Copyright (C) 2026 Mehedi Maruf <rsimplone@mehedimaruf.com> (developer), <license@mehedimaruf.com> (licence)
+Can't reach rsimplone@mehedimaruf.com or license@mehedimaruf.com?
+The domain probably expired because HE's TOO BROKE TO RENEW IT.
+Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead,
+and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rSimpLone: rClone, made simple.</title>
+<meta name="description" content="rSimpLone is a free, open-source window for rclone: copy, sync and move to Google Drive, OneDrive, S3, SFTP and more. Preview first, then run. Windows, Linux and macOS.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://rsimplone.mehedimaruf.com/">
+<meta property="og:title" content="rSimpLone: rClone, made simple.">
+<meta property="og:url" content="https://rsimplone.mehedimaruf.com/">
+<link rel="icon" href="favicon.png">
+<style>
+@font-face { font-family: "Inter"; font-weight: 100 900; font-display: swap; src: url("fonts/inter-latin-wght-normal.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-weight: 100 900; font-display: swap; src: url("fonts/geist-mono-latin-wght-normal.woff2") format("woff2"); }
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#fbf5ec, #1a0b10);
+  --bg-alt: light-dark(#f5ecdd, #200e14);
+  --surface: light-dark(#fffdf8, #26121a);
+  --border: light-dark(#e8dccb, #3a1e27);
+  --text: light-dark(#2a1117, #f2e6d8);
+  --muted: light-dark(#6e5a52, #a8958c);
+  --accent: light-dark(#7a0f24, #d8b478);
+  --accent-hover: light-dark(#5c0a1b, #e8c893);
+  --accent-fg: light-dark(#fbf3e8, #1a0b10);
+  --accent-soft: light-dark(rgba(122,15,36,.09), rgba(216,180,120,.12));
+  --shadow: 0 1px 2px light-dark(rgba(42,17,23,.05), rgba(0,0,0,.5)), 0 14px 40px light-dark(rgba(42,17,23,.10), rgba(0,0,0,.55));
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 1rem/1.6 var(--font); }
+a { color: var(--accent); text-underline-offset: .18em; }
+a:hover { color: var(--accent-hover); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+.wrap { width: min(64rem, 100% - 2rem); margin-inline: auto; }
+header.top { display: flex; align-items: center; gap: .7rem; padding: 1.1rem 0; }
+header.top img { width: 2.1rem; height: 2.1rem; }
+header.top b { font-size: 1.05rem; letter-spacing: .01em; }
+header.top .sp { flex: 1; }
+header.top a.nav { font-size: .92rem; text-decoration: none; margin-left: 1rem; color: var(--muted); }
+header.top a.nav:hover { color: var(--accent); }
+.hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 2.5rem; align-items: center; padding: 3rem 0 4rem; }
+.hero h1 { font-size: clamp(2.3rem, 5vw, 3.6rem); line-height: 1.05; margin: 0 0 1rem; letter-spacing: -.02em; }
+.hero h1 span { color: var(--accent); }
+.lede { font-size: 1.15rem; color: var(--muted); max-width: 34rem; margin: 0 0 1.6rem; }
+.btn { display: inline-flex; align-items: center; gap: .5rem; padding: .8rem 1.3rem; border-radius: .6rem; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 600 1rem var(--font); text-decoration: none; cursor: pointer; }
+.btn:hover { border-color: var(--accent); color: var(--text); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.primary:hover { background: var(--accent-hover); color: var(--accent-fg); }
+.cta { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; }
+.small { font-size: .88rem; color: var(--muted); }
+.shot { border-radius: .8rem; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; background: var(--surface); }
+.shot img { display: block; width: 100%; height: auto; }
+section { padding: 3rem 0; border-top: 1px solid var(--border); }
+section h2 { font-size: 1.7rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
+section > .wrap > p.intro { color: var(--muted); max-width: 40rem; margin: 0 0 1.8rem; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: .8rem; padding: 1.2rem; }
+.card h3 { margin: 0 0 .4rem; font-size: 1.05rem; }
+.card p { margin: 0; color: var(--muted); font-size: .95rem; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.4rem; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: .8rem; overflow: hidden; }
+th, td { text-align: left; padding: .8rem 1rem; border-bottom: 1px solid var(--border); font-size: .95rem; vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+th { background: var(--bg-alt); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+td.act { text-align: right; white-space: nowrap; }
+td .tag { font-size: .75rem; padding: .1rem .5rem; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-left: .4rem; }
+.note { border: 1px solid var(--border); background: var(--accent-soft); border-radius: .8rem; padding: 1rem 1.2rem; margin-top: 1.2rem; font-size: .95rem; }
+.note p { margin: 0 0 .5rem; } .note p:last-child { margin: 0; }
+pre { background: var(--bg-alt); border: 1px solid var(--border); border-radius: .6rem; padding: .8rem 1rem; overflow-x: auto; margin: .6rem 0; font-size: .85rem; }
+blockquote { margin: 0; border-left: 3px solid var(--accent); padding: .2rem 0 .2rem 1.2rem; max-width: 42rem; }
+blockquote p { margin: 0 0 .8rem; }
+details { background: var(--surface); border: 1px solid var(--border); border-radius: .6rem; padding: .8rem 1rem; margin-bottom: .6rem; }
+summary { cursor: pointer; font-weight: 600; }
+details p { margin: .6rem 0 0; color: var(--muted); }
+footer { border-top: 1px solid var(--border); padding: 2rem 0 3rem; color: var(--muted); font-size: .88rem; }
+footer p { margin: 0 0 .6rem; }
+@media (max-width: 52rem) {
+  .hero { grid-template-columns: 1fr; padding-top: 1.5rem; }
+  .cards, .tabs { grid-template-columns: 1fr; }
+  th:nth-child(2), td:nth-child(2) { display: none; }
+  td.act { white-space: normal; }
+  header.top a.nav { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <picture><source srcset="img/emblem-gold.png" media="(prefers-color-scheme: dark)"><img src="img/emblem.png" alt=""></picture>
+    <b>rSimpLone</b><span class="sp"></span>
+    <a class="nav" href="#download">Download</a><a class="nav" href="#why">Why no web version</a><a class="nav" href="https://github.com/BlesseDevil/rsimplone">Source</a>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>rClone,<br><span>made simple.</span></h1>
+      <p class="lede">Copy, sync and move your files to Google Drive, OneDrive, Dropbox, S3, SFTP and more, from one friendly window. Preview first, then run. Free and open source.</p>
+      <div class="cta">
+        <a class="btn primary" id="main-dl" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Download rSimpLone</a>
+        <a class="btn" href="#download">All downloads</a>
+      </div>
+      <p class="small" id="main-note">Windows, Linux and macOS. Needs <a href="https://rclone.org/install/">rclone</a>; the app can install it for you.</p>
+    </div>
+    <div class="shot">
+      <picture><source srcset="img/job-dark.webp" media="(prefers-color-scheme: dark)"><img src="img/job-light.webp" width="1500" height="949" alt="The rSimpLone window with a copy job set up: source, destination and a Preview button"></picture>
+    </div>
+  </div>
+</div>
+
+<section id="why-use">
+  <div class="wrap">
+    <h2>Safe by default</h2>
+    <p class="intro">rclone is powerful, and powerful tools bite. rSimpLone keeps the power and puts guard rails around it.</p>
+    <div class="cards">
+      <div class="card"><h3>Preview before anything happens</h3><p>Every job has a Preview that shows what would change without touching a file. Move needs a fresh preview and a typed confirmation, because it deletes the source.</p></div>
+      <div class="card"><h3>Everything in one window</h3><p>Add Google Drive, OneDrive, S3 or SFTP connections with rclone's own guided sign-in. Run jobs, watch them live, schedule them, mount drives.</p></div>
+      <div class="card"><h3>Free, open, and yours</h3><p>AGPL-3.0 licensed. Your logins stay in your own rclone config on your own computer. Nothing is sent anywhere.</p></div>
+    </div>
+    <div class="tabs">
+      <div class="shot"><picture><source srcset="img/remotes-dark.webp" media="(prefers-color-scheme: dark)"><img src="img/remotes-light.webp" width="1500" height="949" loading="lazy" alt="The Remotes page listing saved connections"></picture></div>
+      <div class="shot"><img src="img/run-dark.webp" width="1500" height="949" loading="lazy" alt="A job running live with progress and the rclone log"></div>
+    </div>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <h2>Download</h2>
+    <p class="intro" id="ver-line">Latest release on GitHub.</p>
+    <table>
+      <thead><tr><th>For</th><th>File</th><th></th></tr></thead>
+      <tbody id="dl-rows">
+        <tr><td>Windows <span class="tag">installer</span></td><td class="small">setup, with uninstaller, no admin needed</td><td class="act"><a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Get it</a></td></tr>
+        <tr><td>Windows <span class="tag">single file</span></td><td class="small">portable</td><td class="act"><a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Get it</a></td></tr>
+        <tr><td>Linux <span class="tag">single file</span></td><td class="small">portable, about 232 MB (bundles its web view)</td><td class="act"><a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Get it</a></td></tr>
+        <tr><td>macOS <span class="tag">Apple Silicon</span></td><td class="small">zipped app, experimental</td><td class="act"><a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Get it</a></td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <p><b>The files are not code-signed.</b> Windows SmartScreen or macOS Gatekeeper may warn you. Check the file's SHA-256 against <a id="sums" href="https://github.com/BlesseDevil/rsimplone/releases/latest">SHA256SUMS.txt</a> first:</p>
+      <pre>Get-FileHash .\rSimpLone-*-windows-x64-setup.exe        # Windows (PowerShell)
+sha256sum rSimpLone-*-linux-x64-portable                 # Linux
+shasum -a 256 rSimpLone-*-macos-arm64-portable.zip       # macOS</pre>
+      <p>macOS: right-click the app and choose Open (or run <code>xattr -dr com.apple.quarantine rSimpLone.app</code>). macOS support is experimental. Windows needs WebView2, which current Windows 10 and 11 already have.</p>
+      <p><b>rclone is not included.</b> If it is missing, rSimpLone shows an <b>Install rclone</b> button that uses your own package manager (winget, Scoop or Homebrew) after showing you the exact command. Or install it yourself from <a href="https://rclone.org/install/">rclone.org</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <h2>Why there is no web version</h2>
+    <blockquote>
+      <p>I could have built one. The window is plain HTML, so a browser version is a small step.</p>
+      <p>I chose not to host it, on purpose. rSimpLone runs rclone on the computer it lives on, and rclone can read, overwrite and delete files. A public web version would either let strangers loose on the server's files, or mean I keep your Google Drive and server logins on my side so it can act for you. I don't want to hold your keys, and I don't want you to have to trust me with them.</p>
+      <p>So your logins stay in your own rclone config, on your own computer. The app has one optional network call of its own, an update check that is off until you turn it on. If you want a browser view for your own NAS or server, a self-hosted mode that only you can reach is possible later.</p>
+    </blockquote>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2>Questions</h2>
+    <details><summary>What is rclone?</summary><p>A free command-line program that copies files to and from almost any cloud or server. rSimpLone is a window on top of it, so you don't have to memorise commands.</p></details>
+    <details><summary>Is it safe for my files?</summary><p>Preview shows what would change before you run anything. Sync keeps replaced files in a backup folder. Move only runs after a fresh preview and a typed confirmation. It is free software, so you can read exactly what it does.</p></details>
+    <details><summary>Where is my data kept?</summary><p>Jobs and settings live in a folder on your computer. Remote logins live in your rclone config file, which you can choose in Settings. Passwords are never shown or written to logs.</p></details>
+    <details><summary>How do I uninstall it?</summary><p>Use the Windows uninstaller or delete the portable file. The uninstaller asks before deleting your jobs and settings, and by default it keeps them.</p></details>
+    <details><summary>Does it check for updates?</summary><p>Only if you say yes. It then asks GitHub once a day for the newest release and links to it. It never downloads or installs anything by itself.</p></details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><b>rSimpLone by blessedevil</b>. Free software under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL v3 or later</a>. <a href="https://github.com/BlesseDevil/rsimplone">Source code</a> · <a href="https://github.com/BlesseDevil/rsimplone/releases">All releases</a> · <a href="https://mehedimaruf.com">mehedimaruf.com</a></p>
+    <p>Licence questions: license@mehedimaruf.com. Can't reach license@mehedimaruf.com? The domain probably expired because HE's TOO BROKE TO RENEW IT. Please don't take it personally. Try blessedevil@duck.com or mehedimaruf@duck.com instead, and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')</p>
+    <p>This page asks GitHub for the latest version number when it loads; it sets no cookies and has no trackers.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var REL = "https://github.com/BlesseDevil/rsimplone/releases/latest";
+  var kinds = [
+    { key: "windows-x64-setup.exe", os: "win", label: "Windows installer" },
+    { key: "windows-x64-portable.exe", os: "win2", label: "Windows single file" },
+    { key: "linux-x64-portable", os: "linux", label: "Linux single file" },
+    { key: "macos-arm64-portable.zip", os: "mac", label: "macOS" }
+  ];
+  function mb(n) { return (n / 1e6).toFixed(n > 5e7 ? 0 : 1) + " MB"; }
+  var ua = (navigator.userAgent || "") + " " + (navigator.platform || "");
+  var mine = /Mac/i.test(ua) && !/iPhone|iPad/i.test(ua) ? "mac" : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? "linux" : "win";
+  fetch("https://api.github.com/repos/BlesseDevil/rsimplone/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (rel) {
+      var by = {}, assets = rel.assets || [];
+      kinds.forEach(function (k) { assets.forEach(function (a) { if (typeof a.name === "string" && a.name.slice(-k.key.length) === k.key && /^https:\/\/github\.com\/BlesseDevil\/rsimplone\/releases\/download\//.test(a.browser_download_url)) by[k.key] = a; }); });
+      var rows = document.querySelectorAll("#dl-rows tr");
+      kinds.forEach(function (k, i) {
+        var a = by[k.key]; if (!a) return;
+        var link = rows[i].querySelector("a"); link.href = a.browser_download_url; link.textContent = "Download " + mb(a.size);
+        rows[i].children[1].textContent = a.name;
+      });
+      var sums = assets.filter(function (a) { return a.name === "SHA256SUMS.txt"; })[0];
+      if (sums) document.getElementById("sums").href = sums.browser_download_url;
+      var tag = /^v\d+\.\d+\.\d+$/.test(rel.tag_name || "") ? rel.tag_name : "";
+      if (tag) document.getElementById("ver-line").textContent = "Latest version: " + tag.slice(1) + ".";
+      var pick = by[kinds.filter(function (k) { return k.os === (mine === "win" ? "win" : mine); })[0].key];
+      if (pick) {
+        var b = document.getElementById("main-dl"); b.href = pick.browser_download_url;
+        b.textContent = "Download for " + (mine === "win" ? "Windows" : mine === "mac" ? "macOS" : "Linux") + (tag ? " (" + tag.slice(1) + ")" : "");
+        if (mine === "mac") document.getElementById("main-note").insertAdjacentText("afterbegin", "Apple Silicon only, experimental. ");
+      }
+    })
+    .catch(function () { /* the plain links to the latest release still work */ });
+})();
+</script>
+</body>
+</html>
