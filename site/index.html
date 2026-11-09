@@ -17,139 +17,296 @@ and maybe BUY HIM a COFFE or a DOMAIN. Thank you... :')
 <meta property="og:title" content="rSimpLone: rClone, made simple.">
 <meta property="og:url" content="https://rsimplone.mehedimaruf.com/">
 <link rel="icon" href="favicon.png">
+<script>document.documentElement.className = "js";</script>
 <style>
 @font-face { font-family: "Inter"; font-weight: 100 900; font-display: swap; src: url("fonts/inter-latin-wght-normal.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-weight: 100 900; font-display: swap; src: url("fonts/geist-mono-latin-wght-normal.woff2") format("woff2"); }
 :root {
   color-scheme: light dark;
-  --bg: light-dark(#fbf5ec, #1a0b10);
-  --bg-alt: light-dark(#f5ecdd, #200e14);
-  --surface: light-dark(#fffdf8, #26121a);
-  --border: light-dark(#e8dccb, #3a1e27);
-  --text: light-dark(#2a1117, #f2e6d8);
-  --muted: light-dark(#6e5a52, #a8958c);
+  --bg: light-dark(#fbf5ec, #150a0e);
+  --bg-alt: light-dark(#f5ecdd, #1d0d13);
+  --surface: light-dark(rgba(255,253,248,.82), rgba(42,20,28,.62));
+  --surface-solid: light-dark(#fffdf8, #26121a);
+  --border: light-dark(#e6d8c4, rgba(216,180,120,.16));
+  --text: light-dark(#2a1117, #f4e9db);
+  --muted: light-dark(#6e5a52, #b09d93);
   --accent: light-dark(#7a0f24, #d8b478);
-  --accent-hover: light-dark(#5c0a1b, #e8c893);
+  --accent-hover: light-dark(#5c0a1b, #ecd0a0);
   --accent-fg: light-dark(#fbf3e8, #1a0b10);
-  --accent-soft: light-dark(rgba(122,15,36,.09), rgba(216,180,120,.12));
-  --shadow: 0 1px 2px light-dark(rgba(42,17,23,.05), rgba(0,0,0,.5)), 0 14px 40px light-dark(rgba(42,17,23,.10), rgba(0,0,0,.55));
+  --accent-soft: light-dark(rgba(122,15,36,.08), rgba(216,180,120,.10));
+  --crimson: #b01b33;
+  --gold: light-dark(#b38a4c, #e4cc9c);
+  --glow1: light-dark(rgba(176,27,51,.16), rgba(176,27,51,.34));
+  --glow2: light-dark(rgba(228,204,156,.55), rgba(216,180,120,.14));
+  --shadow: 0 2px 4px light-dark(rgba(42,17,23,.06), rgba(0,0,0,.4)), 0 24px 60px light-dark(rgba(90,20,35,.16), rgba(0,0,0,.6));
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 400 1rem/1.6 var(--font); }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 1rem/1.65 var(--font); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 a { color: var(--accent); text-underline-offset: .18em; }
 a:hover { color: var(--accent-hover); }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 code, .mono { font-family: var(--mono); font-size: .88em; }
-.wrap { width: min(64rem, 100% - 2rem); margin-inline: auto; }
-header.top { display: flex; align-items: center; gap: .7rem; padding: 1.1rem 0; }
-header.top img { width: 2.1rem; height: 2.1rem; }
+.wrap { width: min(70rem, 100% - 2.2rem); margin-inline: auto; position: relative; }
+
+/* living background */
+.bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.bg i { position: absolute; border-radius: 50%; filter: blur(90px); will-change: transform; }
+.bg i:nth-child(1) { width: 46rem; height: 46rem; left: -12rem; top: -14rem; background: var(--glow1); animation: drift1 22s ease-in-out infinite alternate; }
+.bg i:nth-child(2) { width: 38rem; height: 38rem; right: -10rem; top: 8rem; background: var(--glow2); animation: drift2 26s ease-in-out infinite alternate; }
+.bg i:nth-child(3) { width: 34rem; height: 34rem; left: 30%; bottom: -16rem; background: var(--glow1); animation: drift1 30s ease-in-out infinite alternate-reverse; opacity: .7; }
+.bg::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 3.5rem 3.5rem; opacity: .35; mask-image: radial-gradient(70% 55% at 50% 0%, #000, transparent 75%); -webkit-mask-image: radial-gradient(70% 55% at 50% 0%, #000, transparent 75%); }
+@keyframes drift1 { to { transform: translate(7rem, 5rem) scale(1.15); } }
+@keyframes drift2 { to { transform: translate(-6rem, 7rem) scale(.9); } }
+
+header.top { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); background: color-mix(in srgb, var(--bg) 72%, transparent); border-bottom: 1px solid transparent; transition: border-color .2s; }
+header.top.stuck { border-bottom-color: var(--border); }
+header.top .wrap { display: flex; align-items: center; gap: .7rem; padding: .8rem 0; }
+header.top img { width: 2.2rem; height: 2.2rem; }
 header.top b { font-size: 1.05rem; letter-spacing: .01em; }
 header.top .sp { flex: 1; }
-header.top a.nav { font-size: .92rem; text-decoration: none; margin-left: 1rem; color: var(--muted); }
-header.top a.nav:hover { color: var(--accent); }
-.hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 2.5rem; align-items: center; padding: 3rem 0 4rem; }
-.hero h1 { font-size: clamp(2.3rem, 5vw, 3.6rem); line-height: 1.05; margin: 0 0 1rem; letter-spacing: -.02em; }
-.hero h1 span { color: var(--accent); }
-.lede { font-size: 1.15rem; color: var(--muted); max-width: 34rem; margin: 0 0 1.6rem; }
-.btn { display: inline-flex; align-items: center; gap: .5rem; padding: .8rem 1.3rem; border-radius: .6rem; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 600 1rem var(--font); text-decoration: none; cursor: pointer; }
-.btn:hover { border-color: var(--accent); color: var(--text); }
-.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.btn.primary:hover { background: var(--accent-hover); color: var(--accent-fg); }
-.cta { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; }
+header.top a.nav { font-size: .92rem; text-decoration: none; margin-left: 1.2rem; color: var(--muted); }
+header.top a.nav:hover { color: var(--text); }
+details.contact { position: relative; margin: 0 0 0 1.2rem; padding: 0; border: 0; border-radius: 0; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.contact summary { list-style: none; cursor: pointer; font-size: .92rem; line-height: 1.65; color: var(--muted); font-weight: 400; padding: 0; }
+.contact summary::-webkit-details-marker { display: none; }
+.contact summary:hover, .contact[open] summary { color: var(--text); }
+.contact .panel { position: absolute; right: -.4rem; top: calc(100% + .9rem); width: min(21rem, calc(100vw - 2rem)); padding: 1.1rem; border-radius: 1rem; border: 1px solid var(--border); background: var(--surface-solid); box-shadow: var(--shadow); z-index: 40; color: var(--muted); font-size: .88rem; animation: pop .16s ease-out; }
+.contact .panel::before { content: ""; position: absolute; top: -.45rem; right: 1.6rem; width: .8rem; height: .8rem; background: var(--surface-solid); border-left: 1px solid var(--border); border-top: 1px solid var(--border); transform: rotate(45deg); }
+@keyframes pop { from { opacity: 0; transform: translateY(-.3rem); } }
+.contact .who { display: flex; align-items: center; gap: .7rem; margin-bottom: .9rem; }
+.contact .who img { width: 2.3rem; height: 2.3rem; }
+.contact .who b { display: block; color: var(--text); font-size: .98rem; line-height: 1.2; }
+.contact .who span { font-size: .8rem; }
+.contact .addr { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .55rem .6rem .55rem .8rem; border-radius: .6rem; background: var(--bg-alt); border: 1px solid var(--border); margin-bottom: .7rem; }
+.contact .addr code { color: var(--text); font-size: .8rem; user-select: all; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact .addr button { flex: none; padding: .3rem .65rem; border-radius: .45rem; border: 1px solid var(--border); background: var(--surface-solid); color: var(--text); font: 600 .76rem var(--font); cursor: pointer; }
+.contact .addr button:hover { border-color: var(--accent); color: var(--accent); }
+.contact .acts { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.contact .acts a { display: flex; align-items: center; justify-content: center; gap: .4rem; padding: .6rem .5rem; border-radius: .6rem; border: 1px solid var(--border); background: var(--surface-solid); color: var(--text); font: 600 .84rem var(--font); text-decoration: none; transition: border-color .15s, transform .15s; }
+.contact .acts a:hover { border-color: var(--accent); transform: translateY(-1px); }
+.contact .acts a.main { background: linear-gradient(135deg, var(--crimson), #7a0f24); border-color: transparent; color: #fff6ec; }
+.contact .acts svg { width: .95rem; height: .95rem; }
+.contact .alt { margin: .8rem 0 0; font-size: .8rem; text-align: center; }
+header.top a.cta-mini { margin-left: 1.2rem; padding: .45rem .95rem; border-radius: 99px; background: var(--accent); color: var(--accent-fg); text-decoration: none; font-size: .88rem; font-weight: 600; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .55rem; padding: .85rem 1.4rem; border-radius: .75rem; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 600 1rem var(--font); text-decoration: none; cursor: pointer; backdrop-filter: blur(8px); transition: transform .15s, box-shadow .15s, border-color .15s; }
+.btn:hover { transform: translateY(-2px); border-color: var(--accent); color: var(--text); box-shadow: var(--shadow); }
+.btn.primary { background: linear-gradient(135deg, var(--crimson), #7a0f24); color: #fff6ec; border-color: transparent; box-shadow: 0 8px 28px rgba(176,27,51,.38); }
+.btn.primary:hover { color: #fff; box-shadow: 0 12px 36px rgba(176,27,51,.55); }
+.btn svg { width: 1.15rem; height: 1.15rem; }
+
+.hero { display: grid; grid-template-columns: 1fr 1.15fr; gap: 3rem; align-items: center; padding: 3.5rem 0 5rem; }
+.badge { display: inline-flex; align-items: center; gap: .5rem; padding: .3rem .8rem; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); font-size: .82rem; color: var(--muted); margin-bottom: 1.2rem; }
+.badge::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: #3bbf72; box-shadow: 0 0 0 0 rgba(59,191,114,.6); animation: ping 2.2s infinite; }
+@keyframes ping { 70% { box-shadow: 0 0 0 .6rem rgba(59,191,114,0); } 100% { box-shadow: 0 0 0 0 rgba(59,191,114,0); } }
+.hero h1 { font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; margin: 0 0 1.2rem; letter-spacing: -.035em; font-weight: 800; }
+.grad { background: linear-gradient(100deg, var(--crimson) 0%, #e0557a 35%, var(--gold) 75%); -webkit-background-clip: text; background-clip: text; color: transparent; background-size: 200% 100%; animation: sheen 7s ease-in-out infinite alternate; }
+@keyframes sheen { to { background-position: 100% 0; } }
+.byline { margin: -.4rem 0 1.2rem; font-size: .95rem; color: var(--muted); }
+.byline a { color: var(--text); font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--border); }
+.byline a:hover { color: var(--accent); border-color: var(--accent); }
+.lede { font-size: 1.2rem; color: var(--muted); max-width: 33rem; margin: 0 0 1.8rem; }
+.cta { display: flex; flex-wrap: wrap; gap: .8rem; align-items: center; }
 .small { font-size: .88rem; color: var(--muted); }
-.shot { border-radius: .8rem; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; background: var(--surface); }
+.hero .small { margin-top: 1.1rem; }
+
+.stage { position: relative; perspective: 1400px; }
+.stage .emblem { position: absolute; width: 58%; right: -9%; top: -16%; z-index: 0; filter: drop-shadow(0 20px 50px rgba(176,27,51,.55)); animation: float 7s ease-in-out infinite; opacity: .96; }
+@keyframes float { 50% { transform: translateY(-.9rem) rotate(2deg); } }
+.shot { position: relative; z-index: 1; border-radius: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; background: var(--surface-solid); }
 .shot img { display: block; width: 100%; height: auto; }
-section { padding: 3rem 0; border-top: 1px solid var(--border); }
-section h2 { font-size: 1.7rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
-section > .wrap > p.intro { color: var(--muted); max-width: 40rem; margin: 0 0 1.8rem; }
-.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: .8rem; padding: 1.2rem; }
-.card h3 { margin: 0 0 .4rem; font-size: 1.05rem; }
-.card p { margin: 0; color: var(--muted); font-size: .95rem; }
-.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.4rem; }
-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: .8rem; overflow: hidden; }
-th, td { text-align: left; padding: .8rem 1rem; border-bottom: 1px solid var(--border); font-size: .95rem; vertical-align: middle; }
-tr:last-child td { border-bottom: 0; }
-th { background: var(--bg-alt); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-td.act { text-align: right; white-space: nowrap; }
-td .tag { font-size: .75rem; padding: .1rem .5rem; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-left: .4rem; }
-.note { border: 1px solid var(--border); background: var(--accent-soft); border-radius: .8rem; padding: 1rem 1.2rem; margin-top: 1.2rem; font-size: .95rem; }
-.note p { margin: 0 0 .5rem; } .note p:last-child { margin: 0; }
-pre { background: var(--bg-alt); border: 1px solid var(--border); border-radius: .6rem; padding: .8rem 1rem; overflow-x: auto; margin: .6rem 0; font-size: .85rem; }
-blockquote { margin: 0; border-left: 3px solid var(--accent); padding: .2rem 0 .2rem 1.2rem; max-width: 42rem; }
-blockquote p { margin: 0 0 .8rem; }
-details { background: var(--surface); border: 1px solid var(--border); border-radius: .6rem; padding: .8rem 1rem; margin-bottom: .6rem; }
+.tilt { transform: rotateY(var(--ry, -6deg)) rotateX(var(--rx, 3deg)); transition: transform .25s ease-out; transform-style: preserve-3d; margin-top: 2.5rem; }
+.chip { position: absolute; z-index: 2; padding: .45rem .85rem; border-radius: 99px; background: var(--surface-solid); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: .82rem; font-weight: 600; animation: float 6s ease-in-out infinite; }
+.chip.a { left: -1.2rem; bottom: 18%; animation-delay: -1s; }
+.chip.b { right: 1rem; bottom: -1rem; animation-delay: -3s; }
+.chip b { color: var(--crimson); }
+
+.marquee { border-block: 1px solid var(--border); background: var(--surface); backdrop-filter: blur(8px); overflow: hidden; padding: .9rem 0; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.marquee div { display: flex; gap: 3rem; width: max-content; animation: slide 38s linear infinite; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+.marquee span::before { content: "◆"; color: var(--crimson); margin-right: 3rem; font-size: .6rem; vertical-align: middle; }
+@keyframes slide { to { transform: translateX(-50%); } }
+
+section { padding: 5rem 0 1rem; }
+.eyebrow { font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; color: var(--crimson); font-weight: 700; margin: 0 0 .6rem; }
+section h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); line-height: 1.08; margin: 0 0 .8rem; letter-spacing: -.025em; font-weight: 800; }
+.intro { color: var(--muted); max-width: 40rem; margin: 0 0 2.4rem; font-size: 1.08rem; }
+
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; counter-reset: s; }
+.step { position: relative; padding: 1.6rem; border-radius: 1.1rem; border: 1px solid var(--border); background: var(--surface); backdrop-filter: blur(10px); transition: transform .2s, border-color .2s; }
+.step:hover { transform: translateY(-4px); border-color: var(--accent); }
+.step::before { counter-increment: s; content: "0" counter(s); font: 800 2.6rem/1 var(--font); background: linear-gradient(135deg, var(--crimson), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; display: block; margin-bottom: .8rem; }
+.step h3 { margin: 0 0 .4rem; font-size: 1.15rem; }
+.step p { margin: 0; color: var(--muted); font-size: .96rem; }
+
+.bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.1rem; }
+.tile { border-radius: 1.1rem; border: 1px solid var(--border); background: var(--surface); backdrop-filter: blur(10px); padding: 1.5rem; overflow: hidden; position: relative; transition: transform .2s, border-color .2s; }
+.tile:hover { transform: translateY(-4px); border-color: var(--accent); }
+.tile h3 { margin: 0 0 .4rem; font-size: 1.15rem; }
+.tile p { margin: 0 0 1rem; color: var(--muted); font-size: .96rem; }
+.tile.w3 { grid-column: span 3; } .tile.w2 { grid-column: span 2; } .tile.w4 { grid-column: span 4; }
+.tile .shot { margin-top: .4rem; border-radius: .7rem; box-shadow: none; }
+.tile .big { font: 800 2.4rem/1 var(--font); background: linear-gradient(135deg, var(--crimson), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: .5rem; }
+
+.dls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.1rem; }
+.dlcard { display: flex; flex-direction: column; gap: .6rem; padding: 1.5rem; border-radius: 1.1rem; border: 1px solid var(--border); background: var(--surface); backdrop-filter: blur(10px); transition: transform .2s, border-color .2s, box-shadow .2s; }
+.dlcard:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: var(--shadow); }
+.dlcard.mine { border-color: var(--crimson); box-shadow: 0 0 0 1px var(--crimson), var(--shadow); }
+.dlcard svg.ic { width: 2.2rem; height: 2.2rem; color: var(--accent); }
+.dlcard h3 { margin: 0; font-size: 1.1rem; }
+.dlcard .tag { font-size: .72rem; padding: .1rem .55rem; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-left: .4rem; font-weight: 600; vertical-align: middle; }
+.dlcard .fn { font-size: .78rem; color: var(--muted); word-break: break-all; flex: 1; font-family: var(--mono); }
+.dlcard .btn { width: 100%; padding: .7rem 1rem; font-size: .95rem; }
+.note { border: 1px solid var(--border); background: var(--surface); backdrop-filter: blur(10px); border-radius: 1.1rem; padding: 1.2rem 1.4rem; margin-top: 1.3rem; font-size: .96rem; }
+.note p { margin: 0 0 .6rem; } .note p:last-child { margin: 0; }
+pre { background: var(--bg-alt); border: 1px solid var(--border); border-radius: .7rem; padding: .85rem 1rem; overflow-x: auto; margin: .7rem 0; font-size: .82rem; line-height: 1.6; }
+
+.why { position: relative; border-radius: 1.4rem; border: 1px solid var(--border); background: var(--surface); backdrop-filter: blur(10px); padding: 2.6rem; overflow: hidden; }
+.why::after { content: ""; position: absolute; right: -4rem; bottom: -5rem; width: 20rem; height: 20rem; background: url("img/emblem.png") center/contain no-repeat; opacity: .13; pointer-events: none; }
+.why blockquote { margin: 0; max-width: 44rem; position: relative; z-index: 1; font-size: 1.08rem; }
+.why blockquote p { margin: 0 0 1rem; }
+.why blockquote p:first-child { font-size: 1.35rem; font-weight: 700; letter-spacing: -.01em; }
+
+details { background: var(--surface); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: .9rem; padding: 1rem 1.2rem; margin-bottom: .7rem; transition: border-color .2s; }
+details[open] { border-color: var(--accent); }
 summary { cursor: pointer; font-weight: 600; }
-details p { margin: .6rem 0 0; color: var(--muted); }
-footer { border-top: 1px solid var(--border); padding: 2rem 0 3rem; color: var(--muted); font-size: .88rem; }
+details p { margin: .7rem 0 0; color: var(--muted); }
+footer { margin-top: 5rem; border-top: 1px solid var(--border); padding: 2.2rem 0 3rem; color: var(--muted); font-size: .88rem; }
 footer p { margin: 0 0 .6rem; }
-@media (max-width: 52rem) {
-  .hero { grid-template-columns: 1fr; padding-top: 1.5rem; }
-  .cards, .tabs { grid-template-columns: 1fr; }
-  th:nth-child(2), td:nth-child(2) { display: none; }
-  td.act { white-space: normal; }
-  header.top a.nav { display: none; }
+
+.js .reveal { opacity: 0; transform: translateY(1.6rem); transition: opacity .7s ease, transform .7s ease; }
+.js .reveal.in { opacity: 1; transform: none; }
+@media (max-width: 56rem) {
+  .hero { grid-template-columns: 1fr; padding-top: 1.5rem; gap: 2rem; }
+  .stage .emblem { width: 40%; right: -4%; top: -12%; }
+  .steps, .dls { grid-template-columns: 1fr; }
+  .bento { grid-template-columns: 1fr; }
+  .tile.w3, .tile.w2, .tile.w4 { grid-column: auto; }
+  .tilt { --ry: 0deg !important; --rx: 0deg !important; margin-top: 1.5rem; }
+  .chip.a { left: .5rem; } header.top a.nav { display: none; }
+  .why { padding: 1.6rem; }
 }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media (min-width: 56.01rem) and (max-width: 72rem) { .dls { grid-template-columns: repeat(2, 1fr); } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .bg i, .emblem, .chip, .grad, .badge::before, .marquee div { animation: none !important; }
+  .js .reveal { opacity: 1; transform: none; transition: none; }
+  .tilt { transform: none !important; }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <picture><source srcset="img/emblem-gold.png" media="(prefers-color-scheme: dark)"><img src="img/emblem.png" alt=""></picture>
-    <b>rSimpLone</b><span class="sp"></span>
-    <a class="nav" href="#download">Download</a><a class="nav" href="#why">Why no web version</a><a class="nav" href="https://github.com/BlesseDevil/rsimplone">Source</a>
-  </header>
+<div class="bg" aria-hidden="true"><i></i><i></i><i></i></div>
 
+<header class="top" id="top">
+  <div class="wrap">
+    <img src="img/emblem.png" alt="">
+    <b>rSimpLone</b><span class="sp"></span>
+    <a class="nav" href="#how">How it works</a><a class="nav" href="#why-use">Why</a><a class="nav" href="#why">No web version</a><a class="nav" href="https://github.com/BlesseDevil/rsimplone">Source</a>
+    <details class="contact" id="contact">
+      <summary>Contact</summary>
+      <div class="panel">
+        <div class="who"><img src="img/emblem.png" alt=""><div><b>Contact the developer</b><span>Questions, bugs or ideas</span></div></div>
+        <div class="addr"><code id="addr">rsimplone@mehedimaruf.com</code><button type="button" id="copy-addr">Copy</button></div>
+        <div class="acts">
+          <a class="main" href="mailto:rsimplone@mehedimaruf.com?subject=rSimpLone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Email</a>
+          <a href="https://mehedimaruf.com"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg>My website</a>
+        </div>
+        <p class="alt">Or <a href="https://github.com/BlesseDevil/rsimplone/issues">open an issue on GitHub</a>.</p>
+      </div>
+    </details>
+    <a class="cta-mini" href="#download">Download</a>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
   <div class="hero">
     <div>
-      <h1>rClone,<br><span>made simple.</span></h1>
-      <p class="lede">Copy, sync and move your files to Google Drive, OneDrive, Dropbox, S3, SFTP and more, from one friendly window. Preview first, then run. Free and open source.</p>
+      <span class="badge" id="badge">Free and open source</span>
+      <h1>rClone,<br><span class="grad">made simple.</span></h1>
+      <p class="byline"><a href="https://mehedimaruf.com">by blessedevil | Mehedi Maruf</a></p>
+      <p class="lede">Copy, sync and move your files to Google Drive, OneDrive, Dropbox, S3, SFTP and more, from one friendly window. Preview first, then run.</p>
       <div class="cta">
         <a class="btn primary" id="main-dl" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Download rSimpLone</a>
         <a class="btn" href="#download">All downloads</a>
       </div>
       <p class="small" id="main-note">Windows, Linux and macOS. Needs <a href="https://rclone.org/install/">rclone</a>; the app can install it for you.</p>
     </div>
-    <div class="shot">
-      <picture><source srcset="img/job-dark.webp" media="(prefers-color-scheme: dark)"><img src="img/job-light.webp" width="1500" height="949" alt="The rSimpLone window with a copy job set up: source, destination and a Preview button"></picture>
+    <div class="stage">
+      <img class="emblem" src="img/emblem.png" alt="">
+      <div class="tilt" id="tilt">
+        <div class="shot">
+          <picture><source srcset="img/job-dark.webp" media="(prefers-color-scheme: dark)"><img src="img/job-light.webp" width="1500" height="949" alt="The rSimpLone window with a copy job set up: source, destination and a Preview button"></picture>
+        </div>
+      </div>
+      <span class="chip a"><b>Preview</b> before anything changes</span>
+      <span class="chip b">Google Drive · OneDrive · S3 · SFTP</span>
     </div>
   </div>
 </div>
 
+<div class="marquee" aria-hidden="true"><div>
+  <span>Google Drive</span><span>OneDrive</span><span>Dropbox</span><span>Amazon S3</span><span>SFTP</span><span>WebDAV</span><span>Backblaze B2</span><span>FTP</span><span>SMB</span><span>Google Photos</span><span>Box</span><span>Mega</span>
+  <span>Google Drive</span><span>OneDrive</span><span>Dropbox</span><span>Amazon S3</span><span>SFTP</span><span>WebDAV</span><span>Backblaze B2</span><span>FTP</span><span>SMB</span><span>Google Photos</span><span>Box</span><span>Mega</span>
+</div></div>
+
+<section id="how">
+  <div class="wrap">
+    <p class="eyebrow reveal">How it works</p>
+    <h2 class="reveal">Three steps. No commands.</h2>
+    <p class="intro reveal">rclone does the heavy lifting. rSimpLone gives it a clear window.</p>
+    <div class="steps">
+      <div class="step reveal"><h3>Connect</h3><p>Add Google Drive, OneDrive, S3 or any server with rclone's own guided sign-in, right inside the app.</p></div>
+      <div class="step reveal"><h3>Preview</h3><p>See exactly what would be copied, changed or removed. Nothing is touched yet.</p></div>
+      <div class="step reveal"><h3>Run</h3><p>Start it, watch it live, or put it on a schedule. Stop any time.</p></div>
+    </div>
+  </div>
+</section>
+
 <section id="why-use">
   <div class="wrap">
-    <h2>Safe by default</h2>
-    <p class="intro">rclone is powerful, and powerful tools bite. rSimpLone keeps the power and puts guard rails around it.</p>
-    <div class="cards">
-      <div class="card"><h3>Preview before anything happens</h3><p>Every job has a Preview that shows what would change without touching a file. Move needs a fresh preview and a typed confirmation, because it deletes the source.</p></div>
-      <div class="card"><h3>Everything in one window</h3><p>Add Google Drive, OneDrive, S3 or SFTP connections with rclone's own guided sign-in. Run jobs, watch them live, schedule them, mount drives.</p></div>
-      <div class="card"><h3>Free, open, and yours</h3><p>AGPL-3.0 licensed. Your logins stay in your own rclone config on your own computer. Nothing is sent anywhere.</p></div>
-    </div>
-    <div class="tabs">
-      <div class="shot"><picture><source srcset="img/remotes-dark.webp" media="(prefers-color-scheme: dark)"><img src="img/remotes-light.webp" width="1500" height="949" loading="lazy" alt="The Remotes page listing saved connections"></picture></div>
-      <div class="shot"><img src="img/run-dark.webp" width="1500" height="949" loading="lazy" alt="A job running live with progress and the rclone log"></div>
+    <p class="eyebrow reveal">Why rSimpLone</p>
+    <h2 class="reveal">Power, with guard rails.</h2>
+    <p class="intro reveal">rclone is powerful, and powerful tools bite. We kept the power and added the safety.</p>
+    <div class="bento">
+      <div class="tile w3 reveal"><h3>Safe by default</h3><p>Move deletes the source, so it needs a fresh preview and a typed confirmation. Sync keeps replaced files in a backup folder.</p>
+        <div class="shot"><picture><source srcset="img/remotes-dark.webp" media="(prefers-color-scheme: dark)"><img src="img/remotes-light.webp" width="1500" height="949" loading="lazy" alt="The Remotes page listing saved connections"></picture></div></div>
+      <div class="tile w3 reveal"><h3>Watch it happen</h3><p>Live progress, speed and the real rclone log in one place. Run several jobs at once, or schedule them.</p>
+        <div class="shot"><img src="img/run-dark.webp" width="1500" height="949" loading="lazy" alt="A job running live with progress and the rclone log"></div></div>
+      <div class="tile w2 reveal"><div class="big">3</div><h3>Systems</h3><p>Windows, Linux and macOS. An installer, or a single file you can carry.</p></div>
+      <div class="tile w2 reveal"><div class="big">0</div><h3>Accounts</h3><p>Your logins stay in your own rclone config on your own computer. Nothing is sent anywhere.</p></div>
+      <div class="tile w2 reveal"><div class="big">AGPL</div><h3>Free and open</h3><p>Read the code, change it, share it. Licensed AGPL-3.0 or later.</p></div>
     </div>
   </div>
 </section>
 
 <section id="download">
   <div class="wrap">
-    <h2>Download</h2>
-    <p class="intro" id="ver-line">Latest release on GitHub.</p>
-    <table>
-      <thead><tr><th>For</th><th>File</th><th></th></tr></thead>
-      <tbody id="dl-rows">
-        <tr><td>Windows <span class="tag">installer</span></td><td class="small">setup, with uninstaller, no admin needed</td><td class="act"><a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Get it</a></td></tr>
-        <tr><td>Windows <span class="tag">single file</span></td><td class="small">portable</td><td class="act"><a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Get it</a></td></tr>
-        <tr><td>Linux <span class="tag">single file</span></td><td class="small">portable, about 232 MB (bundles its web view)</td><td class="act"><a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Get it</a></td></tr>
-        <tr><td>macOS <span class="tag">Apple Silicon</span></td><td class="small">zipped app, experimental</td><td class="act"><a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Get it</a></td></tr>
-      </tbody>
-    </table>
-    <div class="note">
+    <p class="eyebrow reveal">Download</p>
+    <h2 class="reveal">Get rSimpLone</h2>
+    <p class="intro reveal" id="ver-line">Latest release on GitHub.</p>
+    <div class="dls" id="dl-rows">
+      <div class="dlcard reveal" data-os="win">
+        <svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.2 10.4 4v7H3zM11.4 3.9 21 2.5V11h-9.6zM3 12h7.4v7L3 17.8zM11.4 12H21v8.5l-9.6-1.4z"/></svg>
+        <h3>Windows<span class="tag">installer</span></h3><div class="fn">Setup with uninstaller. No admin needed.</div>
+        <a class="btn primary" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Download</a></div>
+      <div class="dlcard reveal" data-os="win2">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 13h5M10 17h5"/></svg>
+        <h3>Windows<span class="tag">single file</span></h3><div class="fn">Portable. Run it from anywhere.</div>
+        <a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Download</a></div>
+      <div class="dlcard reveal" data-os="linux">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="m7 9 3 3-3 3M12 16h5"/></svg>
+        <h3>Linux<span class="tag">single file</span></h3><div class="fn">Portable, about 232 MB (it bundles its own web view).</div>
+        <a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Download</a></div>
+      <div class="dlcard reveal" data-os="mac">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="1.8"/><path d="M2 19h20"/></svg>
+        <h3>macOS<span class="tag">Apple Silicon</span></h3><div class="fn">Zipped app. Experimental.</div>
+        <a class="btn" href="https://github.com/BlesseDevil/rsimplone/releases/latest">Download</a></div>
+    </div>
+    <div class="note reveal">
       <p><b>The files are not code-signed.</b> Windows SmartScreen or macOS Gatekeeper may warn you. Check the file's SHA-256 against <a id="sums" href="https://github.com/BlesseDevil/rsimplone/releases/latest">SHA256SUMS.txt</a> first:</p>
       <pre>Get-FileHash .\rSimpLone-*-windows-x64-setup.exe        # Windows (PowerShell)
 sha256sum rSimpLone-*-linux-x64-portable                 # Linux
@@ -162,25 +319,30 @@ shasum -a 256 rSimpLone-*-macos-arm64-portable.zip       # macOS</pre>
 
 <section id="why">
   <div class="wrap">
-    <h2>Why there is no web version</h2>
-    <blockquote>
-      <p>I could have built one. The window is plain HTML, so a browser version is a small step.</p>
-      <p>I chose not to host it, on purpose. rSimpLone runs rclone on the computer it lives on, and rclone can read, overwrite and delete files. A public web version would either let strangers loose on the server's files, or mean I keep your Google Drive and server logins on my side so it can act for you. I don't want to hold your keys, and I don't want you to have to trust me with them.</p>
-      <p>So your logins stay in your own rclone config, on your own computer. The app has one optional network call of its own, an update check that is off until you turn it on. If you want a browser view for your own NAS or server, a self-hosted mode that only you can reach is possible later.</p>
-    </blockquote>
+    <p class="eyebrow reveal">A choice I made</p>
+    <h2 class="reveal">Why there is no web version</h2>
+    <div class="why reveal">
+      <blockquote>
+        <p>I could have built one. The window is plain HTML, so a browser version is a small step.</p>
+        <p>I chose not to host it, on purpose. rSimpLone runs rclone on the computer it lives on, and rclone can read, overwrite and delete files. A public web version would either let strangers loose on the server's files, or mean I keep your Google Drive and server logins on my side so it can act for you. I don't want to hold your keys, and I don't want you to have to trust me with them.</p>
+        <p>So your logins stay in your own rclone config, on your own computer. The app has one optional network call of its own, an update check that is off until you turn it on. If you want a browser view for your own NAS or server, a self-hosted mode that only you can reach is possible later.</p>
+      </blockquote>
+    </div>
   </div>
 </section>
 
 <section id="faq">
   <div class="wrap">
-    <h2>Questions</h2>
-    <details><summary>What is rclone?</summary><p>A free command-line program that copies files to and from almost any cloud or server. rSimpLone is a window on top of it, so you don't have to memorise commands.</p></details>
-    <details><summary>Is it safe for my files?</summary><p>Preview shows what would change before you run anything. Sync keeps replaced files in a backup folder. Move only runs after a fresh preview and a typed confirmation. It is free software, so you can read exactly what it does.</p></details>
-    <details><summary>Where is my data kept?</summary><p>Jobs and settings live in a folder on your computer. Remote logins live in your rclone config file, which you can choose in Settings. Passwords are never shown or written to logs.</p></details>
-    <details><summary>How do I uninstall it?</summary><p>Use the Windows uninstaller or delete the portable file. The uninstaller asks before deleting your jobs and settings, and by default it keeps them.</p></details>
-    <details><summary>Does it check for updates?</summary><p>Only if you say yes. It then asks GitHub once a day for the newest release and links to it. It never downloads or installs anything by itself.</p></details>
+    <p class="eyebrow reveal">Questions</p>
+    <h2 class="reveal">Good to know</h2>
+    <details class="reveal"><summary>What is rclone?</summary><p>A free command-line program that copies files to and from almost any cloud or server. rSimpLone is a window on top of it, so you don't have to memorise commands.</p></details>
+    <details class="reveal"><summary>Is it safe for my files?</summary><p>Preview shows what would change before you run anything. Sync keeps replaced files in a backup folder. Move only runs after a fresh preview and a typed confirmation. It is free software, so you can read exactly what it does.</p></details>
+    <details class="reveal"><summary>Where is my data kept?</summary><p>Jobs and settings live in a folder on your computer. Remote logins live in your rclone config file, which you can choose in Settings. Passwords are never shown or written to logs.</p></details>
+    <details class="reveal"><summary>How do I uninstall it?</summary><p>Use the Windows uninstaller or delete the portable file. The uninstaller asks before deleting your jobs and settings, and by default it keeps them.</p></details>
+    <details class="reveal"><summary>Does it check for updates?</summary><p>Only if you say yes. It then asks GitHub once a day for the newest release and links to it. It never downloads or installs anything by itself.</p></details>
   </div>
 </section>
+</main>
 
 <footer>
   <div class="wrap">
@@ -193,39 +355,72 @@ shasum -a 256 rSimpLone-*-macos-arm64-portable.zip       # macOS</pre>
 <script>
 (function () {
   "use strict";
-  var REL = "https://github.com/BlesseDevil/rsimplone/releases/latest";
   var kinds = [
-    { key: "windows-x64-setup.exe", os: "win", label: "Windows installer" },
-    { key: "windows-x64-portable.exe", os: "win2", label: "Windows single file" },
-    { key: "linux-x64-portable", os: "linux", label: "Linux single file" },
-    { key: "macos-arm64-portable.zip", os: "mac", label: "macOS" }
+    { key: "windows-x64-setup.exe", os: "win" },
+    { key: "windows-x64-portable.exe", os: "win2" },
+    { key: "linux-x64-portable", os: "linux" },
+    { key: "macos-arm64-portable.zip", os: "mac" }
   ];
   function mb(n) { return (n / 1e6).toFixed(n > 5e7 ? 0 : 1) + " MB"; }
   var ua = (navigator.userAgent || "") + " " + (navigator.platform || "");
   var mine = /Mac/i.test(ua) && !/iPhone|iPad/i.test(ua) ? "mac" : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? "linux" : "win";
+  var mineCard = document.querySelector('.dlcard[data-os="' + mine + '"]'); if (mineCard) mineCard.classList.add("mine");
+
+  // contact menu: copy the address (a mail app may not be installed), close on outside click or Escape
+  var contact = document.getElementById("contact");
+  document.getElementById("copy-addr").addEventListener("click", function () {
+    var b = this, t = document.getElementById("addr").textContent;
+    function ok() { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1600); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, function () { b.textContent = "Select"; });
+    else b.textContent = "Select";
+  });
+  document.addEventListener("click", function (e) { if (contact.open && !contact.contains(e.target)) contact.open = false; });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") contact.open = false; });
+
+  // header border once scrolled
+  var top = document.getElementById("top");
+  addEventListener("scroll", function () { top.classList.toggle("stuck", scrollY > 8); }, { passive: true });
+
+  // reveal on scroll
+  var els = document.querySelectorAll(".reveal");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }); }, { threshold: .12 });
+    els.forEach(function (e) { io.observe(e); });
+  } else els.forEach(function (e) { e.classList.add("in"); });
+
+  // gentle tilt that follows the pointer (not on touch, not with reduced motion)
+  var tilt = document.getElementById("tilt");
+  if (tilt && matchMedia("(hover:hover) and (pointer:fine) and (min-width:57rem) and (prefers-reduced-motion:no-preference)").matches) {
+    tilt.parentNode.addEventListener("mousemove", function (e) {
+      var r = tilt.parentNode.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+      tilt.style.setProperty("--ry", (-6 + x * 10).toFixed(1) + "deg"); tilt.style.setProperty("--rx", (3 - y * 8).toFixed(1) + "deg");
+    });
+    tilt.parentNode.addEventListener("mouseleave", function () { tilt.style.removeProperty("--ry"); tilt.style.removeProperty("--rx"); });
+  }
+
+  // real file names, sizes and links from the latest release; the plain links keep working if this fails
   fetch("https://api.github.com/repos/BlesseDevil/rsimplone/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
     .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
     .then(function (rel) {
       var by = {}, assets = rel.assets || [];
       kinds.forEach(function (k) { assets.forEach(function (a) { if (typeof a.name === "string" && a.name.slice(-k.key.length) === k.key && /^https:\/\/github\.com\/BlesseDevil\/rsimplone\/releases\/download\//.test(a.browser_download_url)) by[k.key] = a; }); });
-      var rows = document.querySelectorAll("#dl-rows tr");
-      kinds.forEach(function (k, i) {
-        var a = by[k.key]; if (!a) return;
-        var link = rows[i].querySelector("a"); link.href = a.browser_download_url; link.textContent = "Download " + mb(a.size);
-        rows[i].children[1].textContent = a.name;
+      kinds.forEach(function (k) {
+        var a = by[k.key], card = document.querySelector('.dlcard[data-os="' + k.os + '"]'); if (!a || !card) return;
+        var link = card.querySelector("a.btn"); link.href = a.browser_download_url; link.textContent = "Download " + mb(a.size);
+        card.querySelector(".fn").textContent = a.name;
       });
       var sums = assets.filter(function (a) { return a.name === "SHA256SUMS.txt"; })[0];
       if (sums) document.getElementById("sums").href = sums.browser_download_url;
       var tag = /^v\d+\.\d+\.\d+$/.test(rel.tag_name || "") ? rel.tag_name : "";
-      if (tag) document.getElementById("ver-line").textContent = "Latest version: " + tag.slice(1) + ".";
-      var pick = by[kinds.filter(function (k) { return k.os === (mine === "win" ? "win" : mine); })[0].key];
+      if (tag) { document.getElementById("ver-line").textContent = "Latest version: " + tag.slice(1) + "."; document.getElementById("badge").textContent = "Version " + tag.slice(1) + " · free and open source"; }
+      var pick = by[kinds.filter(function (k) { return k.os === mine; })[0].key];
       if (pick) {
         var b = document.getElementById("main-dl"); b.href = pick.browser_download_url;
         b.textContent = "Download for " + (mine === "win" ? "Windows" : mine === "mac" ? "macOS" : "Linux") + (tag ? " (" + tag.slice(1) + ")" : "");
         if (mine === "mac") document.getElementById("main-note").insertAdjacentText("afterbegin", "Apple Silicon only, experimental. ");
       }
     })
-    .catch(function () { /* the plain links to the latest release still work */ });
+    .catch(function () {});
 })();
 </script>
 </body>
